@@ -84,6 +84,11 @@ before(async () => {
     'cancelAnimationFrame',
     'matchMedia',
     'scrollTo',
+    // URL 必须一起换掉。jsdom 的 URL 和 Node 的 URL 是两个对象，
+    // 应用里裸写 URL.createObjectURL(...) 拿到的是 Node 那份 —— 它只认 Node 的
+    // Blob，喂进去一个 jsdom 的 File 会直接 ERR_INVALID_ARG_TYPE。
+    // （以前没有带图的菜谱渲染出来，所以一直没暴露。）
+    'URL',
   ]) {
     if (!(key in dom.window)) continue
     Object.defineProperty(g, key, {
@@ -114,14 +119,22 @@ before(async () => {
   App = appMod.App
 })
 
+/** 上一个挂载的 root，下一次 mountApp 之前先卸掉。 */
+let currentRoot = null
+
 /**
  * 挂载 App，等 store 初始化（异步探测 IndexedDB → 降级 → 播种）落定。
  * 轮询而不是死等固定轮数：机器快就快，慢也不会假阴性。
  */
 async function mountApp() {
   const container = document.getElementById('root')
+  // 先把上一个 root 卸掉再清容器。直接 innerHTML='' 的话 React 手上还攥着
+  // 旧的父子指针，之后一提交就报 "The node to be removed is not a child of this node"。
+  // （以前的用例只是看看 HTML，不点任何东西，所以一直没触发。）
+  currentRoot?.unmount()
   container.innerHTML = ''
   const root = createRoot(container)
+  currentRoot = root
   root.render(createElement(App))
 
   for (let i = 0; i < 100; i++) {
@@ -129,6 +142,11 @@ async function mountApp() {
     await new Promise((r) => setTimeout(r, 10))
   }
   return container.innerHTML
+}
+
+/** 让 React 把一次点击引发的状态更新提交完（离散事件是同步 flush，等一个宏任务足够）。 */
+async function settle() {
+  await new Promise((r) => setTimeout(r, 0))
 }
 
 test('外壳能挂载，并且画出了封面 / 标签栏 / 纸面 / 页脚', async () => {
@@ -180,5 +198,113 @@ test('预置菜渲染成了卡片：有胶带、有分类标签、难度是星�
   assert.ok(
     /class="recipe-thumb[^"]*"[\s\S]*?data-cat=/.test(html),
     '分类标签应该贴在 .recipe-thumb 里',
+  )
+})
+
+/**
+ * 换图：文件选择器必须一直挂在文档上。
+ *
+ * 起因：用户报「无法更换菜品图片」—— 选完照片什么也没发生。
+ * 真因不在压缩、不在存储，而在 DOM：点「从相册选」是先 input.click()
+ * 再关弹层，而 BottomSheet 是 `if (!open) return null`，于是系统选择器刚弹出来，
+ * 承载它的 `<input type=file>` 就被 React 卸载了。原生 change 事件对游离节点
+ * 照样触发（在 input 上直接 addEventListener 收得到），但 React 17+ 把事件
+ * 委托挂在根容器上，脱离文档的节点冒泡不到那儿 —— onChange 一次都不跑。
+ * 所以这个测试盯的不是「有没有提示」，而是「input 还在不在文档里」，
+ * 最后再真的派发一次 change，确认整条链路通到卡片上。
+ *
+ * 顺带一提：设置页的「导入」一直没事，因为它走 lib/io.ts 的 pickFile ——
+ * 自己 addEventListener，用完才把节点摘掉。
+ */
+test('换图：选完文件后 input 仍挂在文档上（否则 React 收不到 change）', async () => {
+  const container = document.getElementById('root')
+  await mountApp()
+
+  // 走用户点出来的那条路：卡片「···」→ 换图
+  container.querySelector('.card-more').click()
+  await settle()
+  const entry = [...document.querySelectorAll('.sheet-item')].find((b) =>
+    b.textContent.includes('换图'),
+  )
+  assert.ok(entry, '操作单里没有「换图」')
+  entry.click()
+  await settle()
+
+  const input = document.querySelector('input[type="file"]:not([capture])')
+  assert.ok(input, '换图弹层里没有从相册选图的 input')
+  assert.ok(input.isConnected, '弹层还没点呢，input 就不在文档里了')
+
+  const pick = [...document.querySelectorAll('.sheet-item')].find((b) =>
+    b.textContent.includes('从相册选'),
+  )
+  assert.ok(pick, '弹层里没有「从相册选」')
+  pick.click()
+  await settle()
+
+  assert.ok(
+    input.isConnected,
+    '点了「从相册选」之后 file input 被卸载了 —— change 事件到不了 React，选完图不会有任何反应',
+  )
+  assert.ok(container.contains(input), 'file input 脱离了 React 树的根容器')
+
+  // 真选一张图，确认整条链路通到卡片上（jsdom 里压缩会降级成存原图，不影响）
+  const file = new window.File([new Uint8Array([1, 2, 3])], 'a.png', { type: 'image/png' })
+  Object.defineProperty(input, 'files', { value: [file], configurable: true })
+  input.dispatchEvent(new window.Event('change', { bubbles: true }))
+
+  for (let i = 0; i < 100; i++) {
+    if (container.querySelector('.recipe-thumb img')) break
+    await settle()
+  }
+  assert.ok(
+    container.querySelector('.recipe-thumb img'),
+    '选完图后卡片上没有出现图片，说明 onChange 根本没跑',
+  )
+})
+
+/** 同一个毛病的第二个入口：编辑页的大图区域。改了一处别忘了另一处。 */
+test('编辑页换图：大图区域的文件选择器也不随弹层卸载', async () => {
+  const container = document.getElementById('root')
+  await mountApp()
+
+  container.querySelector('.card-more').click()
+  await settle()
+  const edit = [...document.querySelectorAll('.sheet-item')].find((b) =>
+    b.textContent.includes('编辑'),
+  )
+  assert.ok(edit, '操作单里没有「编辑」')
+  edit.click()
+  await settle()
+
+  const editor = document.querySelector('.editor')
+  assert.ok(editor, '编辑页没打开')
+
+  // 通用不变式：任何 file input 都不许待在 .sheet 里。
+  // BottomSheet 是 `if (!open) return null`，弹层一关 input 就卸载，
+  // change 事件冒泡不到 React 根容器 —— 这是上面那个 bug 的根，不是个别位置的问题。
+  for (const el of document.querySelectorAll('input[type="file"]')) {
+    assert.ok(!el.closest('.sheet'), '有 file input 被塞进了弹层，选完图 React 收不到 change')
+  }
+
+  // 编辑页自己那两个也是常驻的（弹层还没开就该在）
+  const input = editor.nextElementSibling
+  assert.ok(
+    input instanceof window.HTMLInputElement && input.type === 'file' && !input.hasAttribute('capture'),
+    '编辑页没有把选图 input 放在弹层外面',
+  )
+  assert.ok(input.isConnected, '编辑页的选图 input 不在文档里')
+
+  editor.querySelector('.cover').click()
+  await settle()
+  const pick = [...document.querySelectorAll('.sheet-item')].find((b) =>
+    b.textContent.includes('从相册选'),
+  )
+  assert.ok(pick, '编辑页的图片操作单里没有「从相册选」')
+  pick.click()
+  await settle()
+
+  assert.ok(
+    input.isConnected,
+    '编辑页点完「从相册选」后 file input 被卸载了 —— 和列表页那个是同一个坑',
   )
 })

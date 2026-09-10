@@ -598,32 +598,41 @@ export function RecipeEditor({
         </div>
       </div>
 
+      {/* 两个 file input 必须**一直挂在文档上**，不能塞进下面的 <BottomSheet> 里。
+          起因：点「从相册选」是先 input.click() 再 setSheet(null)，而 BottomSheet
+          是 `if (!open) return null` —— 系统选择器刚弹出来，input 就被卸载了。
+          原生 change 事件对游离节点照样触发，但 React 17+ 把事件委托挂在根容器上，
+          脱离文档的节点冒泡不到那儿，onChange 永远不跑，用户看到的是「选完图没反应」。
+          （设置页的「导入」走 lib/io.ts 的 pickFile：自己 addEventListener、
+          用完才摘节点，所以一直是好的 —— 对照着看就知道差别在哪。） */}
+      <input
+        ref={galleryInput}
+        type="file"
+        accept="image/*"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+      <input
+        ref={cameraInput}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
+
       {/* 图片操作单 */}
       <BottomSheet
         open={sheet === 'image'}
         title="图片"
         onClose={() => setSheet(null)}
       >
-        <input
-          ref={galleryInput}
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={handleFile}
-        />
-        <input
-          ref={cameraInput}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          style={{ display: 'none' }}
-          onChange={handleFile}
-        />
         <button
           type="button"
           className="sheet-item"
           onClick={() => {
-            // 必须在用户手势里同步触发，否则 iOS 会拦掉文件选择器
+            // click() 必须在用户手势里同步触发，否则 iOS 会拦掉文件选择器。
+            // setSheet(null) 放在它后面没问题：input 现在不归弹层管了。
             galleryInput.current?.click()
             setSheet(null)
           }}
