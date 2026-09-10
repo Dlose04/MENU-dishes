@@ -14,3 +14,10 @@ tests/.tmp
 
 # npm run deploy 的临时暂存目录
 .deploy-tmp
+
+# 云函数的依赖（部署时由云端安装，不随仓库走）
+cloud/sync/node_modules
+
+# 家族口令的 sha256。**绝对不能进仓库** —— 仓库是公开的，
+# 公开一个口令的哈希等于给想爆破的人一个可以离线慢慢试的靶子。
+cloud/sync/.env

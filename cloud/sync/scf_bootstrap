@@ -1,0 +1,5 @@
+#!/bin/bash
+for n in /var/lang/node20/bin/node /var/lang/nodejs20/bin/node /var/lang/node18/bin/node; do
+  if [ -x "$n" ]; then exec "$n" index.js; fi
+done
+exec node index.js

@@ -308,7 +308,11 @@ class LocalStorageDriver implements StorageDriver {
     const out: Array<BackupRecipe & { id: string }> = []
     for (const r of recipes) {
       const { imageBlob, ...rest } = r
-      const row: BackupRecipe & { id: string } = { ...rest }
+      // 显式把 image 清成 undefined：这个字段只应该由下面那段按 imageBlob 写。
+      // 从别处原样带进来的旧 dataURL 会**一直留在记录里**，删除时也带不走 ——
+      // 墓碑于是永远占着一张照片的空间，而用户完全看不见。
+      // （JSON.stringify 会把值为 undefined 的键丢掉，所以这行等于不写这个键。）
+      const row: BackupRecipe & { id: string } = { ...rest, image: undefined }
       if (imageBlob) {
         try {
           row.image = await blobToDataURL(imageBlob)

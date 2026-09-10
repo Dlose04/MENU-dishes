@@ -11,6 +11,7 @@ import { TodayPage } from './pages/TodayPage'
 import { SettingsPage } from './pages/SettingsPage'
 import { SharePreviewPage } from './pages/SharePreviewPage'
 import { initStore, useAppState } from './store/appStore'
+import { startSync } from './sync/client'
 import { clearShareFromUrl, readShareFromLocation } from './lib/share'
 
 export function App() {
@@ -23,7 +24,9 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false)
 
   useEffect(() => {
-    void initStore()
+    // 同步必须等 store 初始化完再启动：它第一件事就是读本地数据去合并，
+    // 早于 initStore 启动会读到空库，把「空」推到云端去。
+    void initStore().then(() => startSync())
   }, [])
 
   if (!ready) {

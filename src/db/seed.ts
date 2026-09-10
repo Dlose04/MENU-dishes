@@ -13,7 +13,6 @@
  */
 
 import type { Difficulty, Recipe } from '../types'
-import { nanoid } from '../lib/nanoid'
 import { dataURLToBlob } from '../lib/image'
 import { SEED_PHOTOS } from './seed-photos'
 
@@ -90,11 +89,29 @@ function presetPhoto(name: string): Blob | undefined {
   }
 }
 
-/** 生成预置菜谱（每次调用 id 都不同，所以只在真正播种时调用一次）。 */
+/**
+ * 预置菜的 id。**必须每台设备算出来都一样**，所以不能随机。
+ *
+ * 早先用的是 `nanoid()`，代价是：两台设备各自装一遍，同一个「番茄炒蛋」在
+ * 两边是两条 id 不同的记录 —— 同步是按 id 认「是不是同一条菜」的，于是
+ * 合并之后变成两条重名的菜，照片还各在各的设备上（同步不搬图片）。
+ * 用户 2026-09-10 就是这么撞上的。
+ *
+ * 改成按菜名派生之后，所有设备上「番茄炒蛋」永远是同一条，合并时认得出，
+ * 不会重复；「重新载入预置菜谱」也就能在哪台设备上跑都安全。
+ *
+ * 副作用：改菜名等于换了另一道菜（旧的那条会留在库里）。这可以接受 ——
+ * 菜名是用户看得见的东西，改了名字本来就该当成另一道菜。
+ */
+function presetId(name: string): string {
+  return `preset-${name}`
+}
+
+/** 生成预置菜谱。id 稳定，所以多台设备/多次调用得到的是**同一批**记录。 */
 export function buildSeedRecipes(): Recipe[] {
   const now = Date.now()
   return PRESET_RECIPES.map((p, i) => ({
-    id: nanoid(),
+    id: presetId(p.name),
     name: p.name,
     category: p.category,
     ingredients: [...p.ingredients],

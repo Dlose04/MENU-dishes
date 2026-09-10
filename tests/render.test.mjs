@@ -357,3 +357,84 @@ test('抽签页只有一个摇的入口：抽中后不该再冒出第二个「�
   )
   assert.equal(rollers.length, 1, `摇的入口不止一个（${rollers.length} 个）`)
 })
+
+/* ------------------------------------------------------------------ */
+/* 跨设备同步                                                          */
+/* ------------------------------------------------------------------ */
+
+/** 打开设置页。返回设置页所在的容器（就是 App 的根容器）。 */
+async function openSettings(container) {
+  const entry = [...container.querySelectorAll('button')].find((b) =>
+    b.textContent.includes('设置'),
+  )
+  assert.ok(entry, '页脚没有设置入口')
+  entry.click()
+  await settle()
+  return container
+}
+
+test('设置页有「跨设备同步」；没配的时候只给一个开启入口，不显示关闭', async () => {
+  const container = document.getElementById('root')
+  await mountApp()
+  await openSettings(container)
+
+  const text = container.textContent
+  assert.ok(text.includes('跨设备同步'), '设置页没有「跨设备同步」这一块')
+  assert.ok(text.includes('开启跨设备同步'), '没配同步时应该给一个「开启跨设备同步」入口')
+  assert.ok(!text.includes('关闭同步'), '还没配同步，却出现了「关闭同步」')
+})
+
+test('同步表单：地址是 https 提示，两个口令框都是 password（不明文显示）', async () => {
+  const container = document.getElementById('root')
+  await mountApp()
+  await openSettings(container)
+
+  const open = [...container.querySelectorAll('button')].find((b) =>
+    b.textContent.includes('开启跨设备同步'),
+  )
+  assert.ok(open, '没有「开启跨设备同步」按钮')
+  open.click()
+  await settle()
+
+  const url = document.getElementById('sync-url')
+  assert.ok(url, '表单里没有云函数地址输入框')
+  assert.match(url.placeholder, /^https:\/\//, '地址输入框的提示应该是个 https 例子（http 会被浏览器拦掉）')
+
+  // 口令是全家共用的秘密，输错了不会报错、只会「看起来同步成功但对不上」，
+  // 所以要求填两遍；而且两个框都不能是明文的 —— 设置页常被家人拿在手上看。
+  const pass = document.getElementById('sync-pass')
+  const pass2 = document.getElementById('sync-pass2')
+  assert.ok(pass && pass2, '表单里应该有两个口令框（防止打错字）')
+  assert.equal(pass.type, 'password', '口令框必须是 password，不能在屏幕上明文显示')
+  assert.equal(pass2.type, 'password', '第二个口令框也必须是 password')
+
+  assert.ok(container.textContent.includes('保存并同步'), '表单缺保存按钮')
+})
+
+/**
+ * 离线承诺：**没填地址口令的用户，应用的行为必须一行都不变**。
+ *
+ * 同步是后加的功能，绝不能让它悄悄给纯离线的老用户发请求 —— 那是这个应用
+ * 存在的理由（断网完全可用、数据不出本机）。这条测试盯的就是这个：
+ * 一次都不许发。以后往启动流程里加网络调用，这里会立刻红。
+ */
+test('没配同步时，启动到渲染完一个网络请求都不发', async () => {
+  const calls = []
+  const origGlobal = globalThis.fetch
+  const origWindow = window.fetch
+  const spy = (...args) => {
+    calls.push(String(args[0]))
+    return Promise.reject(new Error('没配同步，不该发请求'))
+  }
+  globalThis.fetch = spy
+  window.fetch = spy
+  try {
+    await mountApp()
+    // 同步是挂在 useEffect 里的，给它留够时间把该发的都发出来（如果真有的话）
+    await new Promise((r) => setTimeout(r, 250))
+    assert.deepEqual(calls, [], `没配同步却发了网络请求：${calls.join('、')}`)
+  } finally {
+    globalThis.fetch = origGlobal
+    window.fetch = origWindow
+  }
+})

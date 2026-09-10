@@ -39,7 +39,7 @@ test('buildSeedRecipes 产出完整菜谱：带 id、带创建时间', () => {
   const ids = new Set(recipes.map((r) => r.id))
   assert.equal(ids.size, 9, 'id 重复了')
   for (const r of recipes) {
-    assert.ok(r.id.length >= 12, `id 太短：${r.id}`)
+    assert.ok(r.id.length > 0, 'id 不能为空')
     assert.ok(Number.isFinite(r.createdAt) && r.createdAt > 0)
     assert.ok(Array.isArray(r.ingredients))
   }
@@ -48,6 +48,33 @@ test('buildSeedRecipes 产出完整菜谱：带 id、带创建时间', () => {
     recipes.map((r) => r.name),
     SPEC.map((s) => s.name),
   )
+})
+
+/**
+ * 预置菜的 id 必须**每台设备算出来都一样**。
+ *
+ * 起因（2026-09-10 用户报「别的设备显示重复的菜」）：id 原来是 nanoid()，
+ * 于是两台设备各自装一遍，同一个「番茄炒蛋」在两边是两条 id 不同的记录。
+ * 同步是按 id 认「是不是同一条菜」的，合并之后就成了两条重名的菜 ——
+ * 而且照片各在各的设备上（同步不搬图片），看起来像「重复且不显示图片」。
+ *
+ * 这个坑在**单机上永远看不出来**，必须两台设备同步一次才暴露，
+ * 所以只能用测试钉住。
+ */
+test('预置菜 id 是稳定的：两次生成一模一样（否则多设备同步会出重名菜）', () => {
+  const a = buildSeedRecipes()
+  const b = buildSeedRecipes()
+
+  assert.deepEqual(
+    a.map((r) => r.id),
+    b.map((r) => r.id),
+    '两次生成的 id 不同 —— 两台设备会各播各的，同步之后变成重名菜',
+  )
+
+  // 换个说法再钉一遍：id 只能由菜名决定，不能掺进调用时机之类的随机因素
+  for (const r of a) {
+    assert.equal(r.id, `preset-${r.name}`, `「${r.name}」的 id 不是按菜名派生的`)
+  }
 })
 
 /**
@@ -117,14 +144,7 @@ test('localStorage 完全不可用时退化成「只看库空不空」，不抛�
   }
 })
 
-test('预置菜被改过之后不会被覆盖（重新播种时按名字跳过已有菜）', () => {
-  // buildSeedRecipes 每次生成新 id，所以「改过的预置菜」在库里就是一条
-  // 普通记录；seeded 标记保证不会再有第二次自动播种把用户改动冲掉。
-  const a = buildSeedRecipes()
-  const b = buildSeedRecipes()
-  assert.notEqual(a[0].id, b[0].id, '两次播种应该是不同的 id（所以只能播一次）')
-  assert.deepEqual(
-    a.map((r) => r.name),
-    b.map((r) => r.name),
-  )
-})
+// 「预置菜被改过之后不会被覆盖」这条原来放在这里，但它测的其实是 id 随机性
+// （buildSeedRecipes 两次调用 id 不同），跟标题说的那件事没关系 —— 而且那个
+// 随机性本身就是 2026-09-10 那个重名 bug 的根源，现在改成稳定 id 了。
+// 真正的行为（「重新载入预置菜谱」按名字跳过已有菜）在 tests/reseed.test.mjs。

@@ -27,6 +27,15 @@ export interface BackupFile {
 const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null
 
+/**
+ * 读一个可选的时间戳。认不出来就当没有（返回 undefined），
+ * **绝不兜底成 `Date.now()`** —— 那等于凭空造出一个「刚刚改过」的时间，
+ * 导入一份旧备份时会把它推到所有设备的最新版本之上，把新的盖掉。
+ */
+function optionalStamp(v: unknown): number | undefined {
+  return typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : undefined
+}
+
 function guessMimeFromDataUrl(dataUrl: string): string {
   const m = /^data:([^;,]+)/.exec(dataUrl)
   return m ? m[1] : 'image/jpeg'
@@ -100,6 +109,12 @@ function parseRecipe(raw: unknown): Recipe | null {
       ? raw.difficulty
       : '简单'
 
+  // 同步用的两个字段要原样带过去。少了 updatedAt，这条在合并时会被当成
+  // 「从没改过」（退回 createdAt），一份刚导出的备份反而会输给云端一个很旧的
+  // 版本；少了 deletedAt 更糟 —— 备份里已经删掉的菜会复活。
+  const updatedAt = optionalStamp(raw.updatedAt)
+  const deletedAt = optionalStamp(raw.deletedAt)
+
   return {
     id,
     name,
@@ -113,6 +128,14 @@ function parseRecipe(raw: unknown): Recipe | null {
       typeof raw.createdAt === 'number' && Number.isFinite(raw.createdAt)
         ? raw.createdAt
         : Date.now(),
+    // 同步用的两个字段要原样带过去。少了 updatedAt，这条在合并时会被
+    // 当成「从没改过」（退回 createdAt），一份刚导出的备份反而会输给
+    // 云端一个很旧的版本。少了 deletedAt 更糟 —— 备份里已删除的菜会复活。
+    // 用条件展开而不是直接写 `updatedAt: undefined`：
+    // 「键在但不值」和「根本没这个键」在 deepStrictEqual 眼里是两回事，
+    // 也会让 JSON 往返和本地对象长得不一样。没有就干脆不带这个键。
+    ...(updatedAt !== undefined ? { updatedAt } : {}),
+    ...(deletedAt !== undefined ? { deletedAt } : {}),
   }
 }
 
@@ -158,7 +181,8 @@ export function parseBackup(text: string): ParsedImport {
       const items = Array.isArray(raw.items)
         ? raw.items.filter((x): x is string => typeof x === 'string')
         : []
-      menus.push({ date, items })
+      const stamp = optionalStamp(raw.updatedAt)
+      menus.push(stamp !== undefined ? { date, items, updatedAt: stamp } : { date, items })
     }
   }
 

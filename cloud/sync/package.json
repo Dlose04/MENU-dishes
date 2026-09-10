@@ -1,0 +1,10 @@
+{
+  "name": "family-menu-sync",
+  "version": "1.0.0",
+  "private": true,
+  "description": "小雨点菜手账的跨设备同步函数",
+  "main": "index.js",
+  "dependencies": {
+    "@cloudbase/node-sdk": "^3.18.3"
+  }
+}

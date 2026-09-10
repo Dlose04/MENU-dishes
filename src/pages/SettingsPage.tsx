@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { CIcon } from '../components/icons'
 import { BottomSheet } from '../components/BottomSheet'
+import { SyncSettings } from '../components/SyncSettings'
 import { useVisualViewport } from '../hooks/useVisualViewport'
 import { useBackGuard } from '../hooks/useBackGuard'
 import {
@@ -95,7 +96,8 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
         message:
           `文件里有 ${parsed.recipes.length} 道菜` +
           (parsed.menus.length ? `、${parsed.menus.length} 天的菜单` : '') +
-          '。会和现有菜谱合并：同一条（id 相同）会跳过，不会覆盖你本地的版本。',
+          '。会和现有菜谱合并：同一条（id 相同）会跳过，不会覆盖你本地的版本；' +
+          '本机没有照片而备份里有的话，会把照片补上。',
         confirmText: '导入',
       })
       if (!ok) return
@@ -104,6 +106,10 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       if (!res) return
 
       const parts = [`新增 ${res.added} 道`]
+      // 补图单独说一句：这是「照片跟着菜到别的设备」唯一走得通的路
+      // （同步不搬图片），只说「跳过 N 道已存在」的话，用户会以为
+      // 备份里那些照片压根没被用上
+      if (res.photoFilled) parts.push(`补回 ${res.photoFilled} 张照片`)
       if (res.skippedExisting) parts.push(`跳过 ${res.skippedExisting} 道已存在`)
       if (res.invalid) parts.push(`${res.invalid} 条格式不对已忽略`)
       if (res.menusMerged) parts.push(`合并 ${res.menusMerged} 天菜单`)
@@ -167,7 +173,15 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
 
         <h3 className="section-title">跨设备同步</h3>
         <p className="subtitle" style={{ marginTop: -4, marginBottom: 12 }}>
-          数据只存在这台设备上。换手机 / 想备份，用下面两个按钮搬一次。
+          菜谱默认只存在这台设备上。手机和平板想互相跟过去，就在这里开一次；
+          不想开也行，用下面两个按钮手动搬。
+        </p>
+
+        <SyncSettings />
+
+        <h3 className="section-title">手动备份</h3>
+        <p className="subtitle" style={{ marginTop: -4, marginBottom: 12 }}>
+          一个 JSON 文件，图片也在里面。存到网盘就是一份离线备份。
         </p>
 
         <button type="button" className="setting-item" disabled={busy} onClick={() => void doExport()}>
@@ -263,7 +277,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           <p style={{ marginTop: 0 }}>
             <strong>小雨点菜手账</strong>
             <br />
-            一个纯前端的小应用：没有服务器、没有账号、不联网也能用。
+            一个纯前端的小应用：没有账号、不注册、不联网也完全能用。
             网页本身就是一个 HTML 文件，所有东西都在你的手机上。
           </p>
 
@@ -272,7 +286,24 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
             <br />
             菜谱和图片存在浏览器的 IndexedDB 里，设置存在 localStorage。
             所以：清浏览器数据、换手机、换浏览器，数据都不会自己跟过去 ——
-            请用上面的「导出 / 导入」搬运，或者把导出的 JSON 存到网盘。
+            可以用上面的「跨设备同步」，也可以用「导出 / 导入」手动搬，
+            或者把导出的 JSON 存到网盘当一份离线备份。
+          </p>
+
+          <p>
+            <strong>「跨设备同步」用的服务器是谁的？</strong>
+            <br />
+            是家里自己的一个云函数（腾讯云开发，免费额度内），只做三件事：
+            核对口令、存一份数据、比对版本号。口令只存在每台设备的浏览器里，
+            既不上传也不写进网页代码 —— 页面是公开托管的，写进去就等于公开。
+            合并两家设备的改动是在各自手机上算的，服务器不参与。
+          </p>
+
+          <p>
+            <strong>同步为什么没有照片？</strong>
+            <br />
+            一张照片压缩后也有几十 KB，每次同步都搬一遍太浪费。
+            照片留在拍它的那台设备上，菜名、用料、分类、备注和菜单会同步。
           </p>
 
           <p>

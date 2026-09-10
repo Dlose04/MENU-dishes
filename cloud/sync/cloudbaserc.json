@@ -1,0 +1,19 @@
+{
+  "version": "2.1",
+  "envId": "xyxx-d8gphvdlh0cac3968",
+  "region": "ap-shanghai",
+  "functionRoot": "..",
+  "functions": [
+    {
+      "name": "sync",
+      "runtime": "Nodejs20.19",
+      "timeout": 20,
+      "memorySize": 256,
+      "installDependency": true,
+      "envVariables": {
+        "MENU_PASS_SHA256": "{{env.MENU_PASS_SHA256}}",
+        "TCB_ENV": "xyxx-d8gphvdlh0cac3968"
+      }
+    }
+  ]
+}
