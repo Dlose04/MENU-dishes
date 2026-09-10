@@ -26,6 +26,31 @@ function run(cmd, args, cwd = ROOT) {
   return execFileSync(cmd, args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
 }
 
+/**
+ * 跑构建。
+ *
+ * 为什么不直接 spawn('npm', ...)：Windows 上的 npm 是 npm.cmd，而 Node 20 起
+ * 出于安全（CVE-2024-27980）拒绝直接 spawn .cmd/.bat，会抛 EINVAL；
+ * 加 shell: true 又能绕过，但那样参数要拼成一条字符串交给 cmd.exe，
+ * 而这台机器的用户目录里有空格，拼接就会踩坑。
+ *
+ * 所以走 npm 自己的 JS 入口：`npm run xxx` 会把 npm-cli.js 的路径放进
+ * npm_execpath，用 node 直接执行它，既不碰 .cmd 也不用 shell。
+ */
+function build() {
+  const npmCli = process.env.npm_execpath
+  if (!npmCli) {
+    // 直接 `node scripts/deploy.mjs` 跑的时候没有这个变量，那就用现成的产物
+    if (fs.existsSync(path.join(DIST, 'index.html'))) {
+      console.log('▸ 跳过构建（直接用现有的 dist/）')
+      return
+    }
+    console.error('没有 dist/ 可发。先跑一次 npm run build，或者用 npm run deploy。')
+    process.exit(1)
+  }
+  run(process.execPath, [npmCli, 'run', 'build'], ROOT)
+}
+
 function remoteUrl() {
   try {
     return run('git', ['remote', 'get-url', 'origin']).trim()
@@ -40,7 +65,7 @@ function remoteUrl() {
 
 // ---- 1. 构建 ----
 console.log('▸ 构建…')
-run('npm', ['run', 'build'], ROOT)
+build()
 if (!fs.existsSync(path.join(DIST, 'index.html'))) {
   console.error('构建产物里没有 dist/index.html，构建可能失败了')
   process.exit(1)
