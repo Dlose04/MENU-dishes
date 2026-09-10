@@ -8,7 +8,7 @@ const { PRESET_RECIPES, buildSeedRecipes, shouldSeed, markSeeded } = seed
 const { SEED_PHOTOS } = await load(src('db/seed-photos.ts'))
 
 /**
- * 自家那 8 道菜，照用户给的说法逐字抄下来做对照。
+ * 自家那 9 道菜，照用户给的说法逐字抄下来做对照。
  *
  * 这里的期望值是**手抄的**，不是从 src/db/seed.ts 里 import 过来的 ——
  * 从源码里取期望值等于自己证明自己，改错了也测不出来。
@@ -22,10 +22,11 @@ const SPEC = [
   { name: '干锅包菜', category: '家常热菜', ingredients: ['猪肉', '包菜', '干辣椒'], difficulty: '中等', emoji: '🥬' },
   { name: '辣椒炒肉', category: '家常热菜', ingredients: ['辣椒', '猪肉'], difficulty: '简单', emoji: '🌶️' },
   { name: '火腿炒蛋', category: '家常热菜', ingredients: ['火腿', '鸡蛋'], difficulty: '简单', emoji: '🍳' },
+  { name: '美味速食', category: '主食', ingredients: ['螺蛳粉', '火鸡面', '泡面'], difficulty: '简单', emoji: '🍜' },
 ]
 
-test('预置菜就是自家那 8 道（字段逐个对）', () => {
-  assert.equal(PRESET_RECIPES.length, 8)
+test('预置菜就是自家那 9 道（字段逐个对）', () => {
+  assert.equal(PRESET_RECIPES.length, 9)
   assert.deepEqual(
     PRESET_RECIPES.map((p) => ({ ...p })),
     SPEC,
@@ -34,9 +35,9 @@ test('预置菜就是自家那 8 道（字段逐个对）', () => {
 
 test('buildSeedRecipes 产出完整菜谱：带 id、带创建时间', () => {
   const recipes = buildSeedRecipes()
-  assert.equal(recipes.length, 8)
+  assert.equal(recipes.length, 9)
   const ids = new Set(recipes.map((r) => r.id))
-  assert.equal(ids.size, 8, 'id 重复了')
+  assert.equal(ids.size, 9, 'id 重复了')
   for (const r of recipes) {
     assert.ok(r.id.length >= 12, `id 太短：${r.id}`)
     assert.ok(Number.isFinite(r.createdAt) && r.createdAt > 0)
@@ -68,15 +69,15 @@ test('每道预置菜都带上了自己那张照片，而且是张真 JPEG', asy
     assert.deepEqual([...head], [0xff, 0xd8, 0xff], `${r.name} 的照片不是合法 JPEG`)
     assert.ok(r.imageBlob.size > 10_000, `${r.name} 的照片小得不像照片：${r.imageBlob.size} 字节`)
   }
-  // 8 张各不相同：串图最典型的症状就是「每道菜长得一样」
+  // 9 张各不相同：串图最典型的症状就是「每道菜长得一样」
   const sizes = recipes.map((r) => r.imageBlob.size)
-  assert.equal(new Set(sizes).size, 8, '有菜共用了同一张照片')
+  assert.equal(new Set(sizes).size, 9, '有菜共用了同一张照片')
 })
 
 test('菜名和配图表对得上：改菜名会让照片落空，而不是串到别的菜身上', () => {
   // 这条是上面那条的对照组 —— 说明「按名字取图」在名字对不上时是安全失败，
   // 而不是悄悄拿隔壁那道菜的照片顶上。
-  assert.equal(Object.keys(SEED_PHOTOS).length, 8)
+  assert.equal(Object.keys(SEED_PHOTOS).length, 9)
   assert.deepEqual(Object.keys(SEED_PHOTOS), SPEC.map((s) => s.name))
 })
 

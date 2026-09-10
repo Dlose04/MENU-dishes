@@ -43,6 +43,7 @@ export const PRESET_RECIPES: PresetRecipe[] = [
   { name: '干锅包菜', category: '家常热菜', ingredients: ['猪肉', '包菜', '干辣椒'], difficulty: '中等', emoji: '🥬' },
   { name: '辣椒炒肉', category: '家常热菜', ingredients: ['辣椒', '猪肉'], difficulty: '简单', emoji: '🌶️' },
   { name: '火腿炒蛋', category: '家常热菜', ingredients: ['火腿', '鸡蛋'], difficulty: '简单', emoji: '🍳' },
+  { name: '美味速食', category: '主食', ingredients: ['螺蛳粉', '火鸡面', '泡面'], difficulty: '简单', emoji: '🍜' },
 ]
 
 const SEEDED_KEY = 'family-menu:seeded'

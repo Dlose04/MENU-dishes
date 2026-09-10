@@ -211,7 +211,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           onClick={async () => {
             const ok = await confirmDialog({
               title: '重新载入预置菜谱？',
-              message: '会把家里那 8 道菜补回来（带照片），已经存在的同名菜不会动。',
+              message: '会把家里那 9 道菜补回来（带照片），已经存在的同名菜不会动。',
               confirmText: '载入',
             })
             if (!ok) return
@@ -231,7 +231,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </span>
           <span className="text">
             重新载入预置菜谱
-            <span className="sub">把家里那 8 道菜补回来（带照片）</span>
+            <span className="sub">把家里那 9 道菜补回来（带照片）</span>
           </span>
         </button>
 

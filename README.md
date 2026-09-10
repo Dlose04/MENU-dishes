@@ -11,7 +11,7 @@
 ```bash
 npm install
 npm run dev        # 开发，浏览器打开提示的地址
-npm run build      # 产出 dist/index.html（单文件，约 925 KB，其中 550KB 是预置菜照片）
+npm run build      # 产出 dist/index.html（单文件，约 1 MB，其中 630KB 是预置菜照片）
 npm test           # 跑 64 个自动化测试
 npm run icons      # 重新生成图标（改了 scripts/make-icons.mjs 才需要跑）
 npm run seed-photos # 重新生成预置菜照片的内联数据（换了 seed-photos/ 里的图才需要跑）
@@ -172,21 +172,21 @@ npm run icons      # 重新生成 public/icon-180.png 和 public/icon-512.png
 
 ### 预置菜的照片是怎么进去的
 
-`src/db/seed-photos.ts` 里那 8 个 base64 字符串是生成的，别手改：
+`src/db/seed-photos.ts` 里那 9 个 base64 字符串是生成的，别手改：
 
 ```bash
-npm run seed-photos   # 读 seed-photos/dish-1..8.jpg，写出 src/db/seed-photos.ts
+npm run seed-photos   # 读 seed-photos/dish-1..9.jpg，写出 src/db/seed-photos.ts
 ```
 
 **为什么要内联**：这是个单文件应用 —— 双击 `file://` 打开、断网都要能用。
 照片放在旁边当文件的话，`file://` 下取不到，离线托管时也多 8 个请求。
-代价是产物大了 550KB（375KB → 925KB），认了。
+代价是产物大了 630KB（375KB → 约 1MB），认了。
 
 **照片是按菜名索引的**，不按下标：`SEED_PHOTOS['番茄炒蛋']`。这样改菜名时
 照片会自然落空（卡片退成 emoji），而**不会串到隔壁那道菜身上** ——
 后者是最难发现的一类错，八道菜看着都对，就是有一张放错了地方。
 `tests/seed.test.mjs` 因此不只检查「有图」，还验 JPEG 魔数、并断言
-8 张照片的字节数互不相同。
+9 张照片的字节数互不相同。
 
 换照片的流程见 `seed-photos/README.md`。
 
@@ -264,7 +264,7 @@ src/
 │   └── nanoid.ts         轻量 id 生成
 ├── db/
 │   ├── storage.ts        IndexedDB → localStorage → 内存 三级降级
-│   ├── seed.ts           8 道自家预置菜 + 「只播种一次」标记
+│   ├── seed.ts           9 道自家预置菜 + 「只播种一次」标记
 │   └── seed-photos.ts    预置菜的照片（base64，由 npm run seed-photos 生成）
 ├── store/                模块级 store（useSyncExternalStore），非 Context
 ├── hooks/                visualViewport / 返回键拦截 / 中文输入法 / 长按
@@ -324,7 +324,7 @@ scripts/
 派上用场的话可以照着走一遍：
 
 **基本**
-- [ ] 第一次打开没有报错，能看到 8 道预置菜，而且**每道都有照片**
+- [ ] 第一次打开没有报错，能看到 9 道预置菜，而且**每道都有照片**
 - [ ] 刷新页面，改动还在
 - [ ] 改掉某道预置菜的名字，重启应用，改动还在（没有被预置数据覆盖）
 

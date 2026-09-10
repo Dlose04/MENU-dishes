@@ -4,8 +4,8 @@
  * 为什么要内联：这个应用硬性要求「一个 index.html 拿走就能用、断网也能用」，
  * 照片放在旁边当文件的话，双击 file:// 打开就取不到了。
  *
- * 关于体积：8 张照片压到最长边 720px、质量 72，合计约 400KB，base64 之后
- * 约 550KB —— 构建产物从 375KB 涨到 ~930KB。这是刻意的取舍：预置菜要带着
+ * 关于体积：9 张照片压到最长边 720px、质量 72，合计约 470KB，base64 之后
+ * 约 630KB —— 构建产物从 375KB 涨到 ~1MB。这是刻意的取舍：预置菜要带着
  * 自家的照片，就只能长在包里。以后想瘦身，先动这里的尺寸和质量。
  *
  * 用法：
@@ -39,6 +39,7 @@ const ORDER = [
   '干锅包菜',
   '辣椒炒肉',
   '火腿炒蛋',
+  '美味速食',
 ]
 
 const entries = ORDER.map((name, i) => {
@@ -60,7 +61,7 @@ const file = `/**
  *
  * 为什么是内联的 base64 字符串：单文件应用（file:// 双击可用、断网可用）
  * 取不到旁边的图片文件，只能长在包里。照片已压到最长边 720px，
- * 8 张合计约 ${Math.round(entries.reduce((s, e) => s + e.kb, 0) / 1024 * 10) / 10}MB 的 base64。
+ * ${entries.length} 张合计约 ${Math.round(entries.reduce((s, e) => s + e.kb, 0) / 1024 * 10) / 10}MB 的 base64。
  */
 
 export const SEED_PHOTOS: Record<string, string> = {
