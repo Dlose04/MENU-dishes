@@ -1,6 +1,6 @@
 {
-  "name": "家庭点菜手账",
-  "short_name": "点菜手账",
+  "name": "小雨点菜手账",
+  "short_name": "小雨点菜",
   "description": "记菜谱、随机点菜、分享今日菜单，纯离线可用",
   "start_url": ".",
   "scope": ".",

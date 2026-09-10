@@ -261,7 +261,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
       <BottomSheet open={aboutOpen} title="关于" onClose={() => setAboutOpen(false)}>
         <div style={{ lineHeight: 1.9, fontSize: 15 }}>
           <p style={{ marginTop: 0 }}>
-            <strong>家庭点菜手账</strong>
+            <strong>小雨点菜手账</strong>
             <br />
             一个纯前端的小应用：没有服务器、没有账号、不联网也能用。
             网页本身就是一个 HTML 文件，所有东西都在你的手机上。

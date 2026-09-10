@@ -308,3 +308,52 @@ test('编辑页换图：大图区域的文件选择器也不随弹层卸载', as
     '编辑页点完「从相册选」后 file input 被卸载了 —— 和列表页那个是同一个坑',
   )
 })
+
+/**
+ * 抽签页只该有一个「摇」的入口。
+ *
+ * 起因：用户截图报「随机抽取菜品这里有两个再来一次」—— 大按钮抽中之后变成
+ * 「再摇一次」，下面那行又并排摆了个「再来一次」，两个干的是同一件事、
+ * 样式还不一样。这类重复在代码里看不出来（一个在按钮文案里、一个在下面的
+ * 条件块里），只有真的抽一次才会同时出现在屏幕上。
+ */
+test('抽签页只有一个摇的入口：抽中后不该再冒出第二个「再来一次」', async () => {
+  const container = document.getElementById('root')
+  await mountApp()
+
+  const tab = [...document.querySelectorAll('.tabbar button')].find((b) =>
+    b.textContent.includes('抽签点菜'),
+  )
+  assert.ok(tab, '标签栏里没有「抽签点菜」')
+  tab.click()
+  await settle()
+
+  const big = [...container.querySelectorAll('button')].find((b) =>
+    b.textContent.includes('今天吃啥？'),
+  )
+  assert.ok(big, '抽签页没有大摇号按钮')
+  big.click()
+
+  // jsdom 里 matchMedia 一律 matches:false，所以走的是带动画那条路：
+  // 老虎机滚 ROLL_MS = 800ms 才落定，这里给它留够。
+  for (let i = 0; i < 200; i++) {
+    if (container.textContent.includes('再摇一次')) break
+    await new Promise((r) => setTimeout(r, 20))
+  }
+
+  assert.ok(container.textContent.includes('再摇一次'), '摇完之后大按钮没变成「再摇一次」')
+  assert.ok(container.textContent.includes('加入今日菜单'), '摇完之后没有「加入今日菜单」')
+
+  // 这一条就是这个用例存在的理由
+  assert.ok(
+    !container.textContent.includes('再来一次'),
+    '大按钮已经能再摇一次了，下面又摆了一个「再来一次」—— 两个入口干同一件事',
+  )
+
+  // 更通用的不变式：抽中之后，摇的入口有且只有那一个。
+  // 以后往结果卡片加动作（收藏、换图……）随便加，但别再加摇的按钮。
+  const rollers = [...container.querySelectorAll('button')].filter((b) =>
+    /摇/.test(b.textContent),
+  )
+  assert.equal(rollers.length, 1, `摇的入口不止一个（${rollers.length} 个）`)
+})

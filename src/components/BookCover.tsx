@@ -14,8 +14,8 @@ export function BookCover() {
         🥢
       </span>
 
-      <h1>家庭点菜手账</h1>
-      <p className="sub">今天吃点什么好呢</p>
+      <h1>小雨点菜手账</h1>
+      <p className="sub">雨宝宝今天想吃什么呀</p>
 
       <span className="dateline">{dateline}</span>
     </header>

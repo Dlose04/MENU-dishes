@@ -55,32 +55,84 @@ test('把产物真的跑起来，应用能挂载上（不是停在开屏页）',
   //
   // **前面所有断言都发现不了它**：产物里确实没有 type="module"，确实是自包含的，
   // 启动看门狗确实在 —— 每一条都通过。只有真的把 JS 执行一遍才看得出来。
-  const { JSDOM, VirtualConsole } = await import('jsdom')
-  const vc = new VirtualConsole()
-  const errors = []
-  vc.on('jsdomError', (e) => errors.push(e.message.split('\n')[0]))
-
-  const dom = new JSDOM(html, {
-    runScripts: 'dangerously',
-    url: 'https://handbook.test/',
-    pretendToBeVisual: true,
-    virtualConsole: vc,
-  })
-  const { window } = dom
-  const root = window.document.getElementById('root')
-
-  // 轮询等 React 把 DOM 提交上去。__handbookMounted 是 render() 之后同步置的，
-  // 而 React 19 的首次提交是异步的 —— 只等那个标记会拿到空的 #root。
-  const done = () => window.__handbookMounted && root.innerHTML.includes('bookcover')
-  for (let i = 0; i < 300 && !done(); i++) {
-    await new Promise((r) => setTimeout(r, 10))
-  }
+  const { window, root, errors } = await boot()
 
   assert.deepEqual(errors, [], '跑起来时抛了错')
   assert.equal(window.__handbookMounted, true, '应用没挂载上（看门狗会报「手账没能翻开」）')
   assert.ok(!root.innerHTML.includes('正在翻开手账'), '#root 还停在开屏文案上')
   assert.ok(root.innerHTML.includes('bookcover'), '#root 里没有应用外壳')
 })
+
+/**
+ * 没有 createObjectURL 也要能起来。
+ *
+ * 起因：2026-09-10 给预置菜配上照片之后，上面那个用例突然开始失败 ——
+ * 应用挂到一半就没了。真因是 `useObjectUrl` 里裸着调 `URL.createObjectURL`，
+ * 而 useEffect 抛出的错会一路冒到根上，React 没有 error boundary 时会把
+ * **整棵树**卸载：不是那道菜没图，是整个页面白掉。
+ *
+ * jsdom 恰好没实现这个 API，所以它天然就是那个「缺少 API 的环境」，
+ * 一行都不用假装。真实的浏览器基本不会缺，但一张缩略图不该有这个杀伤力。
+ *
+ * 这条用例故意**不打桩**，就是要走「API 不在」的那条路。
+ */
+test('浏览器没有 createObjectURL 时，应用照常挂载（缩略图退成 emoji）', { skip }, async () => {
+  const { window, root, errors } = await boot({ stubObjectUrl: false })
+
+  assert.ok(
+    typeof window.URL.createObjectURL === 'undefined',
+    'jsdom 现在实现了这个 API，这条用例得换个办法造出「缺少 API」的环境',
+  )
+  assert.equal(window.__handbookMounted, true, '应用没挂载上')
+  assert.ok(
+    root.innerHTML.includes('bookcover'),
+    '缺了 createObjectURL 就整个白屏了 —— 一张缩略图不该把应用干掉',
+  )
+  // 图没了但菜还在，卡片自己退成 emoji
+  assert.ok(root.innerHTML.includes('recipe-card'), '菜谱卡片也没了，说明是整棵树被卸载了')
+  assert.equal(errors.filter((e) => /createObjectURL/.test(e)).length, 0, '不该往外抛这个错')
+})
+
+/**
+ * 把产物丢进 jsdom 跑起来，等 React 提交完，返回现场。
+ * @param {{stubObjectUrl?: boolean}} options
+ */
+async function boot({ stubObjectUrl = true } = {}) {
+  const { JSDOM, VirtualConsole } = await import('jsdom')
+  const vc = new VirtualConsole()
+  const errors = []
+  vc.on('jsdomError', (e) => errors.push(e.message.split('\n')[0]))
+  // React 的报错走 console.error，不是 jsdomError，不接就什么都看不见
+  vc.on('error', (...args) => errors.push(args.map(String).join(' ').split('\n')[0]))
+
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: 'https://handbook.test/',
+    pretendToBeVisual: true,
+    virtualConsole: vc,
+    // 必须在解析之前铺好：入口脚本是被降到 <head> 的普通脚本，构造完就已经跑过了。
+    // jsdom 不实现 createObjectURL，而预置菜现在带图，卡片一渲染就要用它 ——
+    // 不打桩的话这里测的就不是「能不能挂载」，而是上面那条「缺了 API 也能挂载」了。
+    beforeParse(window) {
+      if (!stubObjectUrl) return
+      window.URL.createObjectURL = () => 'blob:stub'
+      window.URL.revokeObjectURL = () => {}
+    },
+  })
+  const { window } = dom
+  const root = window.document.getElementById('root')
+
+  // 轮询等 React 把 DOM 提交上去。__handbookMounted 是 render() 之后同步置的，
+  // 而 React 19 的首次提交是异步的 —— 只等那个标记会拿到空的 #root。
+  // 第一次启动要播种 8 道菜（含图，走 localStorage 降级那条约 570KB JSON），
+  // 给够预算；真要慢到这个数，说明是逻辑卡住了，不是机器慢。
+  const done = () => window.__handbookMounted && root.innerHTML.includes('bookcover')
+  for (let i = 0; i < 500 && !done(); i++) {
+    await new Promise((r) => setTimeout(r, 10))
+  }
+
+  return { window, root, errors }
+}
 
 test('Service Worker 的缓存名带上了构建哈希', { skip }, () => {
   const sw = path.join(ROOT, 'dist/sw.js')

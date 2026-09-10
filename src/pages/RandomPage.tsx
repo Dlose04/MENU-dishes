@@ -157,7 +157,11 @@ export function RandomPage() {
           </div>
         )}
 
-        {/* 抽中之后的下一步 */}
+        {/* 抽中之后的下一步。
+            这里**只放「接受这个结果」的动作** —— 摇这件事归上面那个大按钮管，
+            抽中之后它的文案就是「再摇一次」。以前这里还并排塞了个「再来一次」，
+            和大按钮干的是同一件事、长得还不一样，看着犯嘀咕（2026-09-10 用户报的）。
+            以后要加就加新动作，别再往这里放第二个摇的入口。 */}
         {result && !rolling && (
           <div className="btn-row" style={{ marginTop: 14 }}>
             <button
@@ -170,9 +174,6 @@ export function RandomPage() {
               }}
             >
               <CIcon name="plus" /> 加入今日菜单
-            </button>
-            <button type="button" className="btn" style={{ flex: 1 }} onClick={roll}>
-              再来一次
             </button>
           </div>
         )}

@@ -370,7 +370,7 @@ export async function exportLibrary(): Promise<ExportResult | null> {
   try {
     const { text, imageCount } = await buildBackup(state.recipes, state.menus)
     return {
-      filename: `点菜手账-菜谱库-${todayKey()}.json`,
+      filename: `小雨点菜手账-菜谱库-${todayKey()}.json`,
       text,
       imageCount,
       bytes: new Blob([text]).size,
