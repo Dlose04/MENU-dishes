@@ -1,0 +1,4 @@
+* text=auto eol=lf
+
+# 图标是二进制，别碰
+*.png binary

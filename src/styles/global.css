@@ -1,0 +1,1696 @@
+/* ==========================================================================
+   家庭点菜手账 —— 手账风格样式表
+   基调：米色横线笔记本纸 + 手写感 + 胶带粘贴的卡片
+   不引网络字体、不引动画库，全部靠系统字体 + CSS。
+   ========================================================================== */
+
+:root {
+  /* 纸与墨。米黄横线纸的配色，取自参考设计 */
+  --paper: #fffdf6;
+  --paper-deep: #f6efdd;
+  --desk: #f6efdd;
+  --ink: #4a423c;
+  --ink-soft: #7a6f63;
+  --ink-faint: #a89b85;
+  --rule: #e3d5b4;
+  --margin-rule: rgba(217, 95, 75, 0.55);
+
+  /* 卡片 */
+  --card: #fffdf6;
+  --card-warm: #fff9e8;
+  --card-line: rgba(74, 66, 60, 0.22);
+  --shadow: 2px 3px 0 rgba(74, 66, 60, 0.12);
+  --shadow-lift: 4px 6px 0 rgba(74, 66, 60, 0.18);
+  /* 手绘框：2.5px 实线墨边 + 硬阴影，参考设计的 .doodle */
+  --doodle-line: 2.5px solid var(--ink);
+  --doodle-shadow: 3px 4px 0 rgba(74, 66, 60, 0.14);
+
+  /* 强调色 */
+  --accent: #d95f4b;
+  --accent-soft: #fbe8e4;
+  --accent-ink: #a3453a;
+
+  /* 参考设计的五色便签：便签、胶带、分类标签都从这里取 */
+  --yellow: #fff3ae;
+  --blue: #cfe6f5;
+  --green: #dcedc8;
+  --pink: #fbdce2;
+  --red: #d95f4b;
+
+  --tape: rgba(244, 183, 110, 0.68);
+  --tape-blue: rgba(150, 196, 230, 0.66);
+  --tape-green: rgba(170, 205, 140, 0.66);
+  --tape-pink: rgba(247, 167, 184, 0.66);
+  --tape-yellow: rgba(250, 225, 130, 0.7);
+
+  --ok: #5b8c4a;
+  --danger: #c0503f;
+
+  /* 手绘感圆角：大面板用经典版，小件用缩放版 */
+  --r-card: 255px 15px 225px 15px / 15px 225px 15px 255px;
+  --r-card-alt: 15px 255px 15px 225px / 225px 15px 255px 15px;
+  --r-btn: 12px 3px 12px 4px / 4px 12px 3px 12px;
+  --r-box: 225px 15px 255px 15px / 15px 255px 15px 225px;
+  --r-chip: 225px 12px 200px 12px / 12px 200px 12px 225px;
+
+  /* 底部导航高度，页面留白要用 */
+  --tabbar-h: 64px;
+
+  /* 页面上「被固定底栏占住」的高度。
+     移动端标签栏是 position:fixed 贴底的，页面留白、多选栏、Toast 都得避开它；
+     桌面端标签栏回到文档流里（变成书签行），这三处就得一起归零。
+     集中成一个变量，改的时候只改这里。 */
+  --fixed-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom));
+
+  /* 正文用楷体；标题另有一套行楷，见 --font-title */
+  --font-hand: "Kaiti SC", "STKaiti", "楷体", "KaiTi", "LXGW WenKai", serif,
+    system-ui, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-title: "STXingkai", "华文行楷", "Xingkai SC", "Kaiti SC", "楷体",
+    "KaiTi", cursive, var(--font-hand);
+}
+
+/* --------------------------------------------------------------------------
+   基础
+   -------------------------------------------------------------------------- */
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  /* 禁止 iOS 横屏时自动放大字号 */
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-hand);
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--ink);
+  background: var(--desk);
+  /* 刘海屏 / 底部横条：让内容能被安全区推开 */
+  overscroll-behavior-y: none;
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+/* 输入框统一 16px：
+   小于 16px 时 iOS Safari 聚焦会自动把整个页面放大，而且缩放后不会自动还原。
+   这条是移动端体验的硬要求，不要为了「好看」调小。 */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* 横线纸背景。fixed 铺满，比给 body 设 background-attachment: fixed 可靠
+   （iOS 上后者会错位、滚动时闪）。
+   三层叠加：两团白光让纸面有受光感，横线是 28px 一格的稿纸。 */
+.paper-bg {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-color: var(--desk);
+  background-image:
+    radial-gradient(circle at 15% 8%, rgba(255, 255, 255, 0.55), transparent 42%),
+    radial-gradient(circle at 85% 90%, rgba(255, 255, 255, 0.4), transparent 40%),
+    repeating-linear-gradient(to bottom, transparent 0 27px, var(--rule) 27px 28px);
+  background-position: 0 0;
+}
+
+/* 左侧那根红色装订线。宽屏上让开内容，窄屏贴着边 */
+.paper-bg::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 58px;
+  width: 2px;
+  background: var(--margin-rule);
+}
+
+@media (max-width: 768px) {
+  .paper-bg::before {
+    left: 14px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   应用骨架
+   -------------------------------------------------------------------------- */
+
+.app {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+.wrap {
+  flex: 1;
+  width: 100%;
+  max-width: 1060px;
+  margin: 0 auto;
+  /* 底部留白要让开固定的标签栏（手机），桌面端这个变量归零 */
+  padding: calc(env(safe-area-inset-top) + 22px) 20px
+    calc(var(--fixed-bottom) + 22px);
+  display: flex;
+  flex-direction: column;
+}
+
+/* --------------------------------------------------------------------------
+   封面
+   -------------------------------------------------------------------------- */
+
+/* 注意：类名不叫 .cover —— 那个名字被编辑器的大图区域占了，见下方 .cover。
+   这里叫 .bookcover。 */
+.bookcover {
+  position: relative;
+  text-align: center;
+  padding: 20px 16px 14px;
+  flex: none;
+}
+
+.bookcover h1 {
+  font-family: var(--font-title);
+  font-size: clamp(30px, 6vw, 46px);
+  font-weight: 400;
+  letter-spacing: 6px;
+  margin: 0;
+  display: inline-block;
+  line-height: 1.25;
+}
+
+/* 标题下面那条手绘波浪红线 */
+.bookcover h1::after {
+  content: "";
+  display: block;
+  height: 8px;
+  margin-top: 2px;
+  background: repeat-x bottom / 120px 8px
+    url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='8'%3E%3Cpath d='M0 5 Q 10 0 20 5 T 40 5 T 60 5 T 80 5 T 100 5 T 120 5' fill='none' stroke='%23d95f4b' stroke-width='2.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.bookcover .sub {
+  font-size: 16px;
+  opacity: 0.85;
+  margin: 8px 0 0;
+}
+
+/* 封面上那张斜贴的黄色日期便签 */
+.bookcover .dateline {
+  display: inline-block;
+  margin-top: 12px;
+  padding: 4px 16px;
+  transform: rotate(-2deg);
+  background: var(--yellow);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-box);
+  font-size: 15px;
+  box-shadow: 2px 2px 0 rgba(74, 66, 60, 0.15);
+}
+
+/* 封面两侧的贴纸 emoji（窄屏藏起来，省地方） */
+.bookcover .sticker {
+  position: absolute;
+  font-size: 32px;
+  filter: drop-shadow(2px 2px 0 rgba(74, 66, 60, 0.1));
+}
+
+.bookcover .sticker.s1 {
+  left: 12%;
+  top: 14px;
+  transform: rotate(-14deg);
+}
+
+.bookcover .sticker.s2 {
+  right: 13%;
+  top: 30px;
+  transform: rotate(12deg);
+}
+
+@media (max-width: 640px) {
+  .bookcover .sticker {
+    display: none;
+  }
+
+  .bookcover {
+    padding: 12px 8px 10px;
+  }
+
+  .wrap {
+    padding-left: 12px;
+    padding-right: 12px;
+  }
+
+  .book {
+    padding: 18px 12px 22px;
+  }
+
+  .book::before,
+  .book::after {
+    width: 64px;
+    height: 20px;
+    top: -10px;
+  }
+
+  .book::before {
+    left: 18px;
+  }
+
+  .book::after {
+    right: 18px;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   纸面：所有页面内容都框在这一页纸里
+   -------------------------------------------------------------------------- */
+
+.book {
+  flex: 1;
+  position: relative;
+  padding: 26px 24px 30px;
+  border: var(--doodle-line);
+  /* 刻意不用 --r-card：255px 的横向半径是给卡片那种小件用的，
+     套到整页的容器上会划出一道横贯全屏的长弧。这里按页面的尺度收小。 */
+  border-radius: 24px 9px 26px 9px / 9px 26px 9px 24px;
+  background: var(--paper);
+  box-shadow: var(--doodle-shadow);
+}
+
+/* 纸面顶部的两个蓝白斜纹胶带角 */
+.book::before,
+.book::after {
+  content: "";
+  position: absolute;
+  width: 96px;
+  height: 24px;
+  top: -12px;
+  opacity: 0.8;
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(207, 230, 245, 0.95) 0 7px,
+    rgba(255, 255, 255, 0.55) 7px 14px
+  );
+  border: 1px dashed rgba(74, 66, 60, 0.22);
+  pointer-events: none;
+}
+
+.book::before {
+  left: 34px;
+  transform: rotate(-4deg);
+}
+
+.book::after {
+  right: 34px;
+  transform: rotate(3deg);
+}
+
+.page {
+  flex: 1;
+}
+
+/* 书内的工具行：页面标题 + 右侧操作按钮 */
+.app-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.app-title {
+  font-family: var(--font-title);
+  font-size: 23px;
+  font-weight: 400;
+  letter-spacing: 2px;
+  margin: 0;
+  line-height: 1.3;
+}
+
+.app-head-side {
+  margin-left: auto;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+/* 页面区域的空状态 / 提示条 */
+.subtitle {
+  color: var(--ink-soft);
+  font-size: 14px;
+  margin: 2px 0 0;
+}
+
+/* --------------------------------------------------------------------------
+   底部 Tab（手账索引标签）
+   -------------------------------------------------------------------------- */
+
+/* 手机：贴底的固定标签栏。
+   注意 position:fixed 是相对视口定位的，所以祖先链上不能有 transform/filter，
+   否则它会退化成相对那个祖先定位、跟着内容一起滚。 */
+.tabbar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 40;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  /* fixed 元素不继承 .app 上的左右安全区，横屏刘海机会顶过去，这里自己让开 */
+  padding: 0 calc(env(safe-area-inset-right) + 8px)
+    calc(env(safe-area-inset-bottom) + 6px) calc(env(safe-area-inset-left) + 8px);
+  height: var(--fixed-bottom);
+  background: rgba(255, 253, 246, 0.94);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-top: 1.6px dashed var(--card-line);
+}
+
+.tab {
+  flex: 1;
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-soft);
+  font-family: var(--font-hand);
+  font-size: 12px;
+  padding: 6px 2px 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  border-radius: var(--r-btn);
+  position: relative;
+  transition: color 0.15s ease, transform 0.15s ease, background-color 0.15s ease;
+}
+
+.tab-emoji {
+  font-size: 20px;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.55;
+  transition: filter 0.15s ease, opacity 0.15s ease, transform 0.15s ease;
+}
+
+/* 选中项：黄底便签 + 抬起来一点 */
+.tab.active {
+  color: var(--ink);
+  font-weight: 700;
+  background: var(--yellow);
+  box-shadow: 1px 2px 0 rgba(74, 66, 60, 0.14);
+  transform: translateY(-3px);
+}
+
+.tab.active .tab-emoji {
+  filter: none;
+  opacity: 1;
+  transform: rotate(-6deg);
+}
+
+.tab:active {
+  transform: translateY(1px);
+}
+
+/* 大屏：标签栏回到文档流，变成封面下面的一排书签。
+   同一个 nav，一套 media query 切换，不用渲染两份。 */
+@media (min-width: 720px) {
+  :root {
+    /* 标签栏不再固定 → 页面留白 / 多选栏 / Toast 的避让量全部归零 */
+    --fixed-bottom: 0px;
+  }
+
+  .tabbar {
+    position: static;
+    height: auto;
+    align-items: flex-end;
+    background: transparent;
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    border-top: none;
+    padding: 0 4px;
+    margin-bottom: -2px;
+    gap: 6px;
+  }
+
+  .tab {
+    flex: 0 1 150px;
+    font-size: 14px;
+    padding: 7px 14px 9px;
+    border: 2px solid var(--ink);
+    border-bottom: none;
+    border-radius: var(--r-btn) var(--r-btn) 0 0;
+    background: var(--paper-deep);
+    box-shadow: 2px 0 0 rgba(74, 66, 60, 0.12);
+    /* 没选中的书签稍微往下沉，露出纸面的边 */
+    transform: translateY(5px);
+  }
+
+  .tab.active {
+    background: var(--yellow);
+    transform: translateY(0);
+    z-index: 1;
+  }
+
+  .tab:hover:not(.active) {
+    transform: translateY(2px);
+  }
+}
+
+/* --------------------------------------------------------------------------
+   卡片 & 胶带
+   -------------------------------------------------------------------------- */
+
+/* 手绘纸卡：实线墨边 + 不规则圆角 + 硬阴影（不是模糊阴影） */
+.card {
+  position: relative;
+  background: var(--card);
+  border: var(--doodle-line);
+  border-radius: var(--r-card);
+  box-shadow: var(--doodle-shadow);
+  padding: 12px;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.card-warm {
+  background: var(--card-warm);
+}
+
+/* 胶带：绝对定位的一条半透明斜纹，两端切出撕口 */
+.tape {
+  position: absolute;
+  top: -13px;
+  left: 50%;
+  width: 88px;
+  height: 26px;
+  margin-left: -44px;
+  background: var(--tape);
+  background-image: repeating-linear-gradient(
+    45deg,
+    rgba(255, 255, 255, 0.35) 0 6px,
+    transparent 6px 12px
+  );
+  transform: rotate(-4deg);
+  box-shadow: 1px 2px 0 rgba(74, 66, 60, 0.1);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.tape::before,
+.tape::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 6px;
+  background: inherit;
+}
+
+.tape::before {
+  left: -6px;
+  clip-path: polygon(100% 0, 100% 100%, 0 88%, 45% 50%, 0 12%);
+}
+
+.tape::after {
+  right: -6px;
+  clip-path: polygon(0 0, 0 100%, 100% 88%, 55% 50%, 100% 12%);
+}
+
+/* 胶带颜色变体，按卡片分类取（见 Tape.tsx） */
+.tape-blue { background-color: var(--tape-blue); }
+.tape-green { background-color: var(--tape-green); }
+.tape-pink { background-color: var(--tape-pink); }
+.tape-yellow { background-color: var(--tape-yellow); }
+
+.tape.tape-right {
+  left: auto;
+  right: 10px;
+  margin-left: 0;
+  transform: rotate(5deg);
+  width: 62px;
+}
+
+.tape.tape-left {
+  left: 12px;
+  margin-left: 0;
+  transform: rotate(-7deg);
+  width: 62px;
+}
+
+/* 菜谱卡片网格 */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(148px, 1fr));
+  gap: 14px;
+  padding-top: 10px;
+}
+
+.recipe-card {
+  padding: 0;
+  overflow: visible;
+  display: flex;
+  flex-direction: column;
+  cursor: pointer;
+  /* 每张卡片由 JS 给一个 -1deg ~ 1deg 的随机倾斜 */
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.recipe-card:active {
+  transform: rotate(var(--tilt, 0deg)) translateY(2px);
+  box-shadow: none;
+}
+
+.recipe-card.selected {
+  outline: 2.2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.recipe-thumb {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin: 8px 8px 0;
+  border-radius: var(--r-chip);
+  overflow: hidden;
+  background: var(--paper-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 分类标签贴在图片右上角（原作的做法），压在图上 */
+.recipe-thumb .tag {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 1;
+  box-shadow: 1px 1px 0 rgba(74, 66, 60, 0.18);
+}
+
+.recipe-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* 没有图片时的大号 emoji + 手绘虚线边框 */
+.recipe-thumb.is-placeholder {
+  border: 1.8px dashed var(--ink-faint);
+  background: repeating-linear-gradient(
+    45deg,
+    rgba(0, 0, 0, 0.02) 0 8px,
+    transparent 8px 16px
+  );
+}
+
+.recipe-emoji {
+  font-size: 42px;
+  line-height: 1;
+}
+
+.recipe-body {
+  padding: 8px 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.recipe-name {
+  font-family: var(--font-title);
+  font-size: 19px;
+  font-weight: 400;
+  line-height: 1.35;
+  margin: 0;
+  word-break: break-word;
+}
+
+.recipe-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--ink-soft);
+}
+
+/* 难度：实心星 + 灰色空星，和原作一致 */
+.stars {
+  color: var(--accent);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.stars .off {
+  color: var(--ink-faint);
+  opacity: 0.45;
+}
+
+/* 卡片右上角的「···」按钮 */
+.card-more {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  z-index: 3;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 2px solid var(--ink);
+  background: rgba(255, 253, 246, 0.94);
+  border-radius: var(--r-btn);
+  color: var(--ink-soft);
+  font-size: 15px;
+  letter-spacing: 1px;
+  cursor: pointer;
+  padding: 0 0 6px;
+  line-height: 1;
+}
+
+.card-more:active {
+  transform: translateY(1px);
+}
+
+/* 多选模式的勾选框 */
+.select-box {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 3;
+  width: 26px;
+  height: 26px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-btn);
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  color: var(--accent);
+}
+
+.select-box.on {
+  background: var(--yellow);
+  border-color: var(--ink);
+}
+
+/* --------------------------------------------------------------------------
+   便签分类标签
+   -------------------------------------------------------------------------- */
+
+/* 默认配色，未被具体分类覆盖时使用（用户自建分类会走到这里） */
+[data-cat] {
+  --cat-bg: #efece2;
+  --cat-ink: #6b6252;
+  --cat-line: #cfc7b6;
+}
+[data-cat="硬菜"]     { --cat-bg: #fbdce2; --cat-ink: #a3453a; --cat-line: #e9a8b4; }
+[data-cat="素菜"]     { --cat-bg: #dcedc8; --cat-ink: #4a7a40; --cat-line: #a8c98a; }
+[data-cat="汤羹"]     { --cat-bg: #cfe6f5; --cat-ink: #35618a; --cat-line: #93bfdf; }
+[data-cat="主食"]     { --cat-bg: #fff3ae; --cat-ink: #8a6d1f; --cat-line: #e3cd6a; }
+[data-cat="家常热菜"] { --cat-bg: #ffe2c4; --cat-ink: #8f5522; --cat-line: #e8b787; }
+[data-cat="凉菜"]     { --cat-bg: #d3ece1; --cat-ink: #2f6d5e; --cat-line: #96c8b5; }
+[data-cat="甜品"]     { --cat-bg: #ecdcf3; --cat-ink: #7a4a8c; --cat-line: #c3a3d3; }
+
+/* 便签标签：实线墨边、微微歪着贴上去 */
+.tag {
+  display: inline-block;
+  background: var(--cat-bg);
+  color: var(--cat-ink);
+  border: 2px solid var(--cat-line);
+  border-radius: var(--r-chip);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.5;
+  padding: 1px 9px;
+  transform: rotate(var(--tilt, 4deg));
+  box-shadow: 1px 2px 2px rgba(74, 66, 60, 0.12);
+  white-space: nowrap;
+}
+
+.tag-plain {
+  --cat-bg: var(--paper-deep);
+  --cat-ink: var(--ink-soft);
+  --cat-line: var(--card-line);
+  background: var(--paper-deep);
+  color: var(--ink-soft);
+  border-color: var(--card-line);
+  font-weight: 400;
+}
+
+/* 分类筛选：横向滚动的便签条 */
+.chip-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 0 10px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: none;
+  appearance: none;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.4;
+  padding: 6px 12px;
+  background: var(--cat-bg);
+  color: var(--cat-ink);
+  border: 2px solid var(--cat-line);
+  border-radius: var(--r-chip);
+  transform: rotate(var(--tilt, 0deg));
+  cursor: pointer;
+  box-shadow: 1px 2px 0 rgba(74, 66, 60, 0.12);
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+  white-space: nowrap;
+}
+
+.chip.on {
+  border-color: var(--ink);
+  box-shadow: 2px 3px 0 rgba(74, 66, 60, 0.2);
+  transform: rotate(var(--tilt, 0deg)) translateY(-1px) scale(1.04);
+  font-weight: 700;
+}
+
+.chip:active {
+  transform: rotate(var(--tilt, 0deg)) translateY(2px);
+  box-shadow: none;
+}
+
+/* --------------------------------------------------------------------------
+   按钮
+   -------------------------------------------------------------------------- */
+
+.btn {
+  appearance: none;
+  font-family: var(--font-hand);
+  font-size: 16px;
+  line-height: 1.4;
+  padding: 9px 16px;
+  color: var(--ink);
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-btn);
+  box-shadow: 2px 3px 0 rgba(74, 66, 60, 0.18);
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease, background 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.btn:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: none;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent-soft);
+  border-color: var(--ink);
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--ink-soft);
+}
+
+.btn-ghost:active:not(:disabled) {
+  transform: none;
+}
+
+.btn-danger {
+  background: #f7dcd8;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-lg {
+  font-size: 18px;
+  padding: 13px 22px;
+}
+
+.btn-sm {
+  font-size: 14px;
+  padding: 6px 11px;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+.btn-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* --------------------------------------------------------------------------
+   表单
+   -------------------------------------------------------------------------- */
+
+.field {
+  margin-bottom: 18px;
+}
+
+.field-label {
+  display: block;
+  font-size: 14px;
+  color: var(--ink-soft);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+/* 输入框：实线墨边的小盒子，聚焦时底色变黄（像用荧光笔标了一下） */
+.input,
+.textarea {
+  width: 100%;
+  appearance: none;
+  background: var(--card);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-btn);
+  padding: 9px 12px;
+  color: var(--ink);
+  outline: none;
+  transition: background-color 0.15s ease;
+}
+
+.input:focus,
+.textarea:focus {
+  background: var(--yellow);
+}
+
+.input::placeholder,
+.textarea::placeholder {
+  color: var(--ink-faint);
+}
+
+.textarea {
+  resize: none;
+  line-height: 28px; /* 和背景横线对齐 */
+  min-height: 56px;
+  max-height: 140px;
+}
+
+/* 分段按钮（难度） */
+.segmented {
+  display: flex;
+  gap: 8px;
+}
+
+.seg {
+  flex: 1;
+  appearance: none;
+  font-family: inherit;
+  font-size: 16px;
+  padding: 9px 4px;
+  background: var(--card);
+  color: var(--ink-soft);
+  border: 2px solid var(--ink);
+  border-radius: var(--r-btn);
+  cursor: pointer;
+  transition: all 0.12s ease;
+}
+
+.seg.on {
+  background: var(--yellow);
+  border-color: var(--ink);
+  color: var(--ink);
+  font-weight: 700;
+  box-shadow: 2px 2px 0 rgba(74, 66, 60, 0.18);
+}
+
+.seg:active {
+  transform: translateY(2px);
+}
+
+/* 食材 chip 输入 */
+.chip-input {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.chip-input .input {
+  flex: 1;
+}
+
+.chip-add {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  padding: 0;
+}
+
+.chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.chip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--card-warm);
+  border: 1.4px solid var(--card-line);
+  border-radius: var(--r-chip);
+  padding: 4px 6px 4px 10px;
+  font-size: 14px;
+  transform: rotate(var(--tilt, 0deg));
+}
+
+.chip-item button {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 17px;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+}
+
+.chip-item button:active {
+  color: var(--danger);
+}
+
+/* 手绘勾选框（今日菜单的勾选） */
+.check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 4px;
+  border-bottom: 1.4px dashed var(--rule);
+  cursor: pointer;
+  background: transparent;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  font-family: inherit;
+  font-size: 16px;
+  text-align: left;
+  color: var(--ink);
+}
+
+.check-box {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  border: 1.8px solid var(--card-line);
+  border-radius: 6px 2px 7px 2px / 2px 7px 2px 6px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  font-size: 15px;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.12s ease;
+}
+
+.check-row.on .check-box {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  transform: rotate(-6deg);
+}
+
+.check-row.on .check-label {
+  color: var(--accent-ink);
+  font-weight: 700;
+}
+
+/* --------------------------------------------------------------------------
+   弹层：底部抽屉 / 全屏编辑器 / 确认框
+   -------------------------------------------------------------------------- */
+
+.mask {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(60, 50, 35, 0.34);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+  animation: fade-in 0.16s ease;
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 61;
+  background: var(--paper);
+  border-top: var(--doodle-line);
+  border-radius: 22px 22px 0 0;
+  padding: 14px 16px calc(env(safe-area-inset-bottom) + 16px);
+  box-shadow: 0 -4px 0 rgba(74, 66, 60, 0.14);
+  animation: sheet-up 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  max-height: 80vh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.sheet-title {
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.sheet-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  appearance: none;
+  font-family: var(--font-hand);
+  font-size: 17px;
+  text-align: left;
+  padding: 14px 12px;
+  background: transparent;
+  border: none;
+  border-bottom: 1.4px dashed var(--rule);
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.sheet-item:last-of-type {
+  border-bottom: none;
+}
+
+.sheet-item:active {
+  background: var(--paper-deep);
+}
+
+.sheet-item.danger {
+  color: var(--danger);
+}
+
+.sheet-cancel {
+  margin-top: 10px;
+}
+
+/* 确认框。居中显示，比抽屉更「正式」一点，所以不摆斜、不加胶带 */
+.dialog {
+  width: 100%;
+  max-width: 340px;
+  padding: 18px;
+  /* 覆盖 .card 的过渡：对话框没有交互位移，省掉免得跟动画打架 */
+  transition: none;
+  animation: dialog-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.dialog-title {
+  font-size: 18px;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  color: var(--ink);
+}
+
+.dialog-message {
+  font-size: 15px;
+  line-height: 1.65;
+  margin: 0;
+  color: var(--ink-soft);
+  /* 文案里可能带换行（比如导出体积提示），别被压成一行 */
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.dialog-actions {
+  margin-top: 18px;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+}
+
+/* 窄屏上两个按钮各占一半，避免「取消」被挤成一小条 */
+.dialog-actions .btn {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 全屏编辑弹层（编辑菜谱 / 菜谱详情 / 设置都用它）。高度由 visualViewport 动态给。
+   z-index 必须低于 .mask(60) / .sheet(61)：浮层里还会再开抽屉，
+   抽屉带着自己的遮罩，如果浮层盖在上面，遮罩不会变暗、点不到。
+   只要高于 .bottom-bar(35) / .tabbar(40) 就够。 */
+.editor {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 55;
+  display: flex;
+  flex-direction: column;
+  background: var(--paper);
+  overflow: hidden;
+  animation: sheet-up 0.22s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.editor-bar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  padding-top: 10px;
+  border-bottom: var(--doodle-line);
+  background: var(--paper);
+}
+
+.editor-bar-title {
+  flex: 1;
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: 19px;
+  font-weight: 400;
+  letter-spacing: 1px;
+}
+
+/* 有改动时高亮，无改动时置灰 —— 用 disabled + 样式一起表达 */
+.editor-bar .save {
+  min-width: 64px;
+}
+
+.editor-body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 100px; /* 底部留白，最后一行不被键盘/安全区挡住 */
+}
+
+.editor-bar-top-safe {
+  padding-top: calc(env(safe-area-inset-top) + 8px);
+}
+
+/* 编辑页顶部的大图区域 */
+.cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-chip);
+  overflow: hidden;
+  background: var(--paper-deep);
+  border: 1.8px dashed var(--ink-faint);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  cursor: pointer;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cover-hint {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 6px;
+  text-align: center;
+  font-size: 12px;
+  background: rgba(255, 253, 246, 0.85);
+  color: var(--ink-soft);
+}
+
+/* 底部固定的操作条（今日菜单的「已选 N 道 / 分享」） */
+.bottom-bar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 叠在标签栏上方；桌面端标签栏入流后这个变量是 0，就贴到视口底部 */
+  bottom: var(--fixed-bottom);
+  z-index: 35;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255, 253, 246, 0.96);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  border-top: 1.6px dashed var(--card-line);
+}
+
+.bottom-bar .count {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.bottom-bar .grow {
+  flex: 1;
+}
+
+/* --------------------------------------------------------------------------
+   Toast
+   -------------------------------------------------------------------------- */
+
+.toaster {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: calc(var(--fixed-bottom) + 16px);
+  z-index: 90;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  pointer-events: none;
+  padding: 0 16px;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  background: var(--yellow);
+  color: var(--ink);
+  font-size: 15px;
+  padding: 9px 16px;
+  border: 2px solid var(--ink);
+  border-radius: var(--r-box);
+  /* 像随手贴上去的一张便签 */
+  transform: rotate(-1deg);
+  box-shadow: 2px 3px 0 rgba(74, 66, 60, 0.18);
+  animation: toast-in 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.toast-action {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 2px 4px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+   空状态 / 插画
+   -------------------------------------------------------------------------- */
+
+.empty {
+  padding: 48px 20px;
+  text-align: center;
+  color: var(--ink-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.empty svg {
+  width: 148px;
+  height: auto;
+  opacity: 0.9;
+}
+
+.empty-title {
+  font-family: var(--font-title);
+  font-size: 19px;
+  letter-spacing: 1px;
+  color: var(--ink);
+}
+
+.empty-desc {
+  font-size: 14px;
+  line-height: 1.7;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   搜索框
+   -------------------------------------------------------------------------- */
+
+.search {
+  position: relative;
+  margin-bottom: 4px;
+}
+
+.search .input {
+  padding-left: 32px;
+  border-color: var(--ink-faint);
+  background: var(--card);
+}
+
+.search .input:focus {
+  border-color: var(--ink);
+}
+
+.search-icon {
+  position: absolute;
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 15px;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/* --------------------------------------------------------------------------
+   段标题 / 分隔线
+   -------------------------------------------------------------------------- */
+
+.section-title {
+  font-size: 15px;
+  color: var(--ink-soft);
+  margin: 22px 0 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.section-title::after {
+  content: "";
+  flex: 1;
+  height: 6px;
+  background: no-repeat center / 100% 100%
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 6' preserveAspectRatio='none'%3E%3Cpath d='M0 3 Q 10 0.5 20 3 T 40 3 T 60 3 T 80 3 T 100 3' fill='none' stroke='%23b3a894' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.divider {
+  height: 8px;
+  margin: 18px 0;
+  background: no-repeat center / 100% 100%
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 8' preserveAspectRatio='none'%3E%3Cpath d='M0 4 Q 12 1 25 4.2 T 50 4 T 75 4.4 T 100 3.6' fill='none' stroke='%23cfc7b6' stroke-width='1.4' stroke-linecap='round' stroke-dasharray='5 3'/%3E%3C/svg%3E");
+}
+
+/* 提示条（存储降级、分享预览页顶部提示） */
+.notice {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 10px 12px;
+  margin: 10px 0;
+  background: #fff6d9;
+  border: 1.5px dashed #e3c76a;
+  border-radius: var(--r-btn);
+  color: #7a6428;
+}
+
+.notice-danger {
+  background: #fbe5e2;
+  border-color: #e0a49c;
+  color: #8e3a30;
+}
+
+.notice-info {
+  background: #e6f1fb;
+  border-color: #a9c9e6;
+  color: #3c5f86;
+}
+
+/* --------------------------------------------------------------------------
+   设置页
+   -------------------------------------------------------------------------- */
+
+.setting-group {
+  margin-bottom: 20px;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  appearance: none;
+  font-family: inherit;
+  font-size: 16px;
+  text-align: left;
+  padding: 14px 12px;
+  background: var(--card);
+  border: 1.4px solid var(--card-line);
+  border-radius: var(--r-btn);
+  box-shadow: 1px 2px 0 rgba(0, 0, 0, 0.06);
+  color: var(--ink);
+  cursor: pointer;
+  margin-bottom: 10px;
+}
+
+.setting-item:active {
+  transform: translateY(2px);
+  box-shadow: none;
+}
+
+.setting-item .icon {
+  font-size: 20px;
+  flex: none;
+}
+
+.setting-item .text {
+  flex: 1;
+  min-width: 0;
+}
+
+.setting-item .sub {
+  display: block;
+  font-size: 13px;
+  color: var(--ink-soft);
+  margin-top: 2px;
+  line-height: 1.5;
+}
+
+.setting-item.danger {
+  color: var(--danger);
+  border-color: #e0a49c;
+}
+
+/* --------------------------------------------------------------------------
+   点菜页（老虎机）
+   -------------------------------------------------------------------------- */
+
+.slot {
+  margin: 10px 0 18px;
+  padding: 26px 16px;
+  text-align: center;
+  position: relative;
+  min-height: 168px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.slot-emoji {
+  font-size: 52px;
+  line-height: 1;
+}
+
+.slot-name {
+  font-family: var(--font-title);
+  font-size: 34px;
+  font-weight: 400;
+  letter-spacing: 3px;
+  line-height: 1.3;
+  word-break: break-word;
+}
+
+/* 滚动中：整体抖一下、字模糊，像老虎机没停稳 */
+.slot.rolling {
+  animation: shake 0.32s linear infinite;
+}
+
+.slot.rolling .slot-name {
+  opacity: 0.85;
+  filter: blur(0.6px);
+}
+
+/* 定格：轻轻弹一下 */
+.slot.settled .slot-name {
+  animation: pop 0.32s cubic-bezier(0.22, 1.4, 0.4, 1);
+}
+
+.slot-meta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  min-height: 26px;
+}
+
+.pick-options {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: var(--ink-soft);
+  padding: 4px 2px;
+}
+
+/* --------------------------------------------------------------------------
+   分享预览页
+   -------------------------------------------------------------------------- */
+
+.share-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 10px;
+  border-bottom: 1.4px dashed var(--rule);
+}
+
+.share-emoji {
+  font-size: 26px;
+  flex: none;
+  width: 36px;
+  text-align: center;
+}
+
+.share-name {
+  font-size: 17px;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+}
+
+/* --------------------------------------------------------------------------
+   动画
+   -------------------------------------------------------------------------- */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(14px); opacity: 0.6; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes toast-in {
+  from { transform: translateY(10px) scale(0.96); opacity: 0; }
+  to { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes pop {
+  0% { transform: scale(0.86); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* 抽签滚动时的左右抖 */
+@keyframes shake {
+  0%,
+  100% { transform: translateX(0) rotate(0deg); }
+  25% { transform: translateX(-3px) rotate(-0.6deg); }
+  75% { transform: translateX(3px) rotate(0.6deg); }
+}
+
+/* --------------------------------------------------------------------------
+   页脚
+   -------------------------------------------------------------------------- */
+
+.footer {
+  margin-top: 22px;
+  padding: 14px 4px 4px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
+.footer .note {
+  line-height: 1.6;
+}
+
+.footer .spacer {
+  flex: 1;
+}
+
+/* 系统开了「减弱动态效果」：全部动画关掉，改成立即到位 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* 大屏（平板/桌面）上把内容收窄，别拉成一条 */
+@media (min-width: 720px) {
+  .page,
+  .app-head {
+    max-width: 900px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .editor-body {
+    max-width: 720px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  /* 标签栏已经回到文档流（书签样式），底部操作条就直接贴视口底，
+     并跟着书签一样收窄居中 */
+  .bottom-bar {
+    max-width: 900px;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: 14px 14px 0 0;
+    border-top: var(--doodle-line);
+  }
+  .footer {
+    max-width: 900px;
+    margin: 22px auto 0;
+    width: 100%;
+  }
+}

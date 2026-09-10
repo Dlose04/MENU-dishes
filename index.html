@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#F6EFDD" />
+    <meta name="description" content="家庭点菜手账 —— 记菜谱、随机点菜、分享今日菜单，纯离线可用" />
+
+    <!-- 不加 maximum-scale / user-scalable=no：那会禁用缩放，且并不能阻止
+         iOS 聚焦放大（真正管用的是输入框 font-size >= 16px）。 -->
+
+    <!-- iOS 添加到主屏幕：全屏无地址栏 -->
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="点菜手账" />
+    <meta name="format-detection" content="telephone=no" />
+    <meta name="color-scheme" content="light" />
+
+    <title>家庭点菜手账</title>
+
+    <!--
+      PWA 清单 & 图标。
+      默认写死成 data: URI，保证「只拿走 index.html 一个文件」时也能正常
+      「添加到主屏幕」。若检测到是 http(s) 部署（而非 file://），下面的启动
+      脚本会把它换成同目录下的真实文件（兼容性更好）。
+    -->
+    <link
+      id="app-manifest"
+      rel="manifest"
+      href="data:application/manifest+json,%7B%22name%22%3A%22%E5%AE%B6%E5%BA%AD%E7%82%B9%E8%8F%9C%E6%89%8B%E8%B4%A6%22%2C%22short_name%22%3A%22%E7%82%B9%E8%8F%9C%E6%89%8B%E8%B4%A6%22%2C%22start_url%22%3A%22.%22%2C%22scope%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22orientation%22%3A%22portrait%22%2C%22background_color%22%3A%22%23F6EFDD%22%2C%22theme_color%22%3A%22%23F6EFDD%22%2C%22lang%22%3A%22zh-CN%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADjElEQVR42u3dMW7UUBSG0dkTu6DNUthFVsEa6NJmDTS0VFkAokEo0SANClGGOB77zX33P8XXEBErzycX24yeD79//XiUunSwCAJaAloCWgJaQEtAS0BLQEtAC2gJaAloCWgJaAEtAS0BLQEtnQX98P3ro9QlE1ouOSSgw7r78vmfrAnQQAvoipiBBtp0FtBAC2iggRbQQLshFNBAC2iggRbQQMtNIdAJ0LodB2iggQYaaKCBLnnD1u04QJvSpjTQQAMNtMsOlx2eQ5vSQAPtOEBDDTXQQAMNNGxQAw10R9DJ+6C99sjLcextZ0qb0i45gAYaaNigBhpooIF2HKChhhpooIEGGjSggQYaaB/8dxyggQYaaKCBBho0oIF2Uwg00I4DNNBAAw000ECDBjTQMAMNtOMADTTQQMMMM9CgAW2jGZiBBhpooH0YyYeRgJbeDzp5bzvZ205yySEBLQEtoC2CgM7s/ubD1bL+QJdHCj/QVwd7+r4/v93u3t4/A9BN8Y4COuIXIB35IQVwF7SjsANdCHA63j2QAz0QMcBjgQO9MeSRN2bJuJeeB6BBBrs7aIjnxw30fxbo+ddhqod6yXmLBA0z1G1Awwx1a9Avvw7OHKCXnMvYCX3s4dPHP4FTu+M5qnaDCLRWYwYaaKATn3KcFgvq2pjPgfYcGmqYU/6nEGqXGa1Am9i1J3K1z3OUBP3W4oF9/WlcFnSlfcleQ7tkMeHe/7nyuX8t//6Zve3entIvWzotAN8W8Lnz8fzvu+RYAXotcMhvV63Xe84B0BuAvgR4R+yXrsHa9fYB/51Ab4m8wg3p3j/DVmsL9EDQo8FXaPS6AV0M9Qz4q62FCd0AtExooJuDto0B1EADLaCBVhjmabYCgwhooAU00JoZc/ntdKEGGmjFYp5uw3OogAZaMZineccK1EADrTjMU70FC2qggVYU5qnfUwgb0C3eJAs1zEArAvO07/qGGuh2L6+HGubye9tdug+etsM8q4tpJ7QpbTK3uuSAGuaWoKEGuh1oqGFuBxpqmNuBhjobc0vQUOdibgsa6jzI7UFDnYe5PWioa299CzTYJjPQuaiTIEeCXvoa5k6lndtI0AmoU89rLOiusNPPZzxoAS0BLQEtAS2gJaAloCWgJaAFtAS0ZG87yd52kksOAS0BLQEtAS0BLaAloCWgJaAloAW0BLQEtAS0BLSAloCWBvcEzwQ14mAVaPsAAAAASUVORK5CYII=%22%2C%22sizes%22%3A%22180x180%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22any%22%7D%2C%7B%22src%22%3A%22data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADjElEQVR42u3dMW7UUBSG0dkTu6DNUthFVsEa6NJmDTS0VFkAokEo0SANClGGOB77zX33P8XXEBErzycX24yeD79//XiUunSwCAJaAloCWgJaQEtAS0BLQEtAC2gJaAloCWgJaAEtAS0BLQEtnQX98P3ro9QlE1ouOSSgw7r78vmfrAnQQAvoipiBBtp0FtBAC2iggRbQQLshFNBAC2iggRbQQMtNIdAJ0LodB2iggQYaaKCBLnnD1u04QJvSpjTQQAMNtMsOlx2eQ5vSQAPtOEBDDTXQQAMNNGxQAw10R9DJ+6C99sjLcextZ0qb0i45gAYaaNigBhpooIF2HKChhhpooIEGGjSggQYaaB/8dxyggQYaaKCBBho0oIF2Uwg00I4DNNBAAw000ECDBjTQMAMNtOMADTTQQMMMM9CgAW2jGZiBBhpooH0YyYeRgJbeDzp5bzvZ205yySEBLQEtoC2CgM7s/ubD1bL+QJdHCj/QVwd7+r4/v93u3t4/A9BN8Y4COuIXIB35IQVwF7SjsANdCHA63j2QAz0QMcBjgQO9MeSRN2bJuJeeB6BBBrs7aIjnxw30fxbo+ddhqod6yXmLBA0z1G1Awwx1a9Avvw7OHKCXnMvYCX3s4dPHP4FTu+M5qnaDCLRWYwYaaKATn3KcFgvq2pjPgfYcGmqYU/6nEGqXGa1Am9i1J3K1z3OUBP3W4oF9/WlcFnSlfcleQ7tkMeHe/7nyuX8t//6Zve3entIvWzotAN8W8Lnz8fzvu+RYAXotcMhvV63Xe84B0BuAvgR4R+yXrsHa9fYB/51Ab4m8wg3p3j/DVmsL9EDQo8FXaPS6AV0M9Qz4q62FCd0AtExooJuDto0B1EADLaCBVhjmabYCgwhooAU00JoZc/ntdKEGGmjFYp5uw3OogAZaMZineccK1EADrTjMU70FC2qggVYU5qnfUwgb0C3eJAs1zEArAvO07/qGGuh2L6+HGubye9tdug+etsM8q4tpJ7QpbTK3uuSAGuaWoKEGuh1oqGFuBxpqmNuBhjobc0vQUOdibgsa6jzI7UFDnYe5PWioa299CzTYJjPQuaiTIEeCXvoa5k6lndtI0AmoU89rLOiusNPPZzxoAS0BLQEtAS2gJaAloCWgJaAFtAS0ZG87yd52kksOAS0BLQEtAS0BLaAloCWgJaAloAW0BLQEtAS0BLSAloCWBvcEzwQ14mAVaPsAAAAASUVORK5CYII=%22%2C%22sizes%22%3A%22512x512%22%2C%22type%22%3A%22image%2Fpng%22%2C%22purpose%22%3A%22maskable%22%7D%5D%7D"
+    />
+    <link id="app-icon" rel="apple-touch-icon" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAALQAAAC0CAYAAAA9zQYyAAADjElEQVR42u3dMW7UUBSG0dkTu6DNUthFVsEa6NJmDTS0VFkAokEo0SANClGGOB77zX33P8XXEBErzycX24yeD79//XiUunSwCAJaAloCWgJaQEtAS0BLQEtAC2gJaAloCWgJaAEtAS0BLQEtnQX98P3ro9QlE1ouOSSgw7r78vmfrAnQQAvoipiBBtp0FtBAC2iggRbQQLshFNBAC2iggRbQQMtNIdAJ0LodB2iggQYaaKCBLnnD1u04QJvSpjTQQAMNtMsOlx2eQ5vSQAPtOEBDDTXQQAMNNGxQAw10R9DJ+6C99sjLcextZ0qb0i45gAYaaNigBhpooIF2HKChhhpooIEGGjSggQYaaB/8dxyggQYaaKCBBho0oIF2Uwg00I4DNNBAAw000ECDBjTQMAMNtOMADTTQQMMMM9CgAW2jGZiBBhpooH0YyYeRgJbeDzp5bzvZ205yySEBLQEtoC2CgM7s/ubD1bL+QJdHCj/QVwd7+r4/v93u3t4/A9BN8Y4COuIXIB35IQVwF7SjsANdCHA63j2QAz0QMcBjgQO9MeSRN2bJuJeeB6BBBrs7aIjnxw30fxbo+ddhqod6yXmLBA0z1G1Awwx1a9Avvw7OHKCXnMvYCX3s4dPHP4FTu+M5qnaDCLRWYwYaaKATn3KcFgvq2pjPgfYcGmqYU/6nEGqXGa1Am9i1J3K1z3OUBP3W4oF9/WlcFnSlfcleQ7tkMeHe/7nyuX8t//6Zve3entIvWzotAN8W8Lnz8fzvu+RYAXotcMhvV63Xe84B0BuAvgR4R+yXrsHa9fYB/51Ab4m8wg3p3j/DVmsL9EDQo8FXaPS6AV0M9Qz4q62FCd0AtExooJuDto0B1EADLaCBVhjmabYCgwhooAU00JoZc/ntdKEGGmjFYp5uw3OogAZaMZineccK1EADrTjMU70FC2qggVYU5qnfUwgb0C3eJAs1zEArAvO07/qGGuh2L6+HGubye9tdug+etsM8q4tpJ7QpbTK3uuSAGuaWoKEGuh1oqGFuBxpqmNuBhjobc0vQUOdibgsa6jzI7UFDnYe5PWioa299CzTYJjPQuaiTIEeCXvoa5k6lndtI0AmoU89rLOiusNPPZzxoAS0BLQEtAS2gJaAloCWgJaAFtAS0ZG87yd52kksOAS0BLQEtAS0BLaAloCWgJaAloAW0BLQEtAS0BLSAloCWBvcEzwQ14mAVaPsAAAAASUVORK5CYII=" />
+
+    <style>
+      /* 首屏兜底：JS 加载/解析之前的底色，避免白屏闪一下 */
+      html,
+      body {
+        margin: 0;
+        background: #f6efdd;
+        color: #4a423c;
+        font-family: "Kaiti SC", "STKaiti", "楷体", "KaiTi", "LXGW WenKai",
+          serif, system-ui, -apple-system, "PingFang SC", "Microsoft YaHei",
+          sans-serif;
+      }
+      #boot {
+        padding: 40vh 24px 0;
+        text-align: center;
+        font-size: 16px;
+        color: #a89b85;
+        letter-spacing: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"><div id="boot">正在翻开手账…</div></div>
+    <noscript>
+      <p style="padding: 24px; text-align: center">
+        这个手账需要开启 JavaScript 才能使用。
+      </p>
+    </noscript>
+
+    <script>
+      // 单文件兜底 vs 静态托管增强。
+      // file:// 双击打开时：manifest 用内联 data URI，不注册 Service Worker
+      // （file:// 下 SW 与相对路径资源都不可用）。
+      // http(s) 部署时：换成同目录的真实文件，并注册 Service Worker 以支持断网。
+      (function () {
+        var hosted = location.protocol === 'http:' || location.protocol === 'https:'
+        if (!hosted) return
+        var icon = document.getElementById('app-icon')
+        if (icon) icon.setAttribute('href', './icon-180.png')
+        var mf = document.getElementById('app-manifest')
+        if (mf) mf.setAttribute('href', './manifest.webmanifest')
+        if ('serviceWorker' in navigator) {
+          window.addEventListener('load', function () {
+            navigator.serviceWorker.register('./sw.js').catch(function () {
+              /* 没有 sw.js 也不影响使用，只是少了离线缓存 */
+            })
+          })
+        }
+      })()
+    </script>
+
+    <script>
+      // 启动诊断。必须排在应用脚本之前，才能捕获到它的错误。
+      //
+      // 起因：在微信 iOS 里点开本地 html，一直停在「正在翻开手账…」。
+      // 真实原因是文档处于不透明源、WebKit 拒绝执行内联 module 脚本，
+      // 但界面上完全看不出发生了什么 —— 一个永远转圈的开屏比报错难查得多。
+      // 所以这里做两件事：捕获错误并显示出来，外加一个「脚本压根没跑」的看门狗。
+      (function () {
+        var errors = []
+
+        function render() {
+          // 应用挂载成功后会在 main.tsx 里置上这个标记。
+          // 用它而不是「#boot 还在不在」判断，是因为 React 挂载时会清空
+          // #root —— 若崩在挂载之后，#boot 已经没了，靠它判断就会漏报。
+          if (window.__handbookMounted) return
+
+          var host = document.getElementById('boot')
+          if (!host) {
+            // #boot 已经被 React 清掉了，说明挂载进行到一半才崩的。
+            // 这时自己造一个容器，别去覆盖 body（那会把已有内容一起抹了）。
+            host = document.createElement('div')
+            host.id = 'boot-failed'
+            document.body.appendChild(host)
+          }
+
+          var ua = navigator.userAgent
+          var env = [
+            '地址协议：' + location.protocol,
+            '运行环境：' + (/MicroMessenger/i.test(ua) ? '微信内置浏览器' : '其它浏览器'),
+            'IndexedDB：' + ('indexedDB' in window ? '有' : '没有'),
+          ].join('<br>')
+
+          host.setAttribute('style', 'padding:32px 20px;text-align:left;letter-spacing:0;line-height:1.7')
+          host.innerHTML =
+            '<div style="font-size:19px;font-weight:700;color:#c0503f;margin-bottom:10px">手账没能翻开</div>' +
+            '<div style="font-size:15px;color:#6b6153;margin-bottom:14px">' +
+            (errors.length
+              ? '错误信息（截图发给开发者就行）：'
+              : '应用脚本似乎完全没有执行，可能被浏览器拦住了。') +
+            '</div>' +
+            (errors.length
+              ? '<pre style="font-size:12px;white-space:pre-wrap;word-break:break-all;background:rgba(0,0,0,0.05);padding:10px;border-radius:8px;margin:0 0 14px">' +
+                errors.slice(0, 3).join('\n\n').replace(/[<>&]/g, function (c) {
+                  return { '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]
+                }) +
+                '</pre>'
+              : '') +
+            '<div style="font-size:13px;color:#a89b85">' + env + '</div>'
+        }
+
+        window.addEventListener('error', function (e) {
+          errors.push((e.message || '脚本加载失败') + (e.filename ? '\n@ ' + e.filename + ':' + e.lineno : ''))
+          render()
+        })
+
+        window.addEventListener('unhandledrejection', function (e) {
+          var r = e.reason
+          errors.push('未处理的 Promise 异常：' + ((r && r.message) || String(r)))
+          render()
+        })
+
+        // 看门狗：8 秒还没挂载上就报。这一步专门抓「脚本根本没执行」
+        // —— 那种情况不会触发任何 error 事件，只有干等才看得出来。
+        setTimeout(render, 8000)
+      })()
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

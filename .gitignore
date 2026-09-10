@@ -1,0 +1,16 @@
+node_modules
+dist
+dist-ssr
+*.local
+.DS_Store
+.vite
+*.log
+.idea
+.vscode/*
+!.vscode/extensions.json
+
+# 渲染冒烟测试临时产物（tests/render.test.mjs 会把 App 打包到这里）
+tests/.tmp
+
+# npm run deploy 的临时暂存目录
+.deploy-tmp
