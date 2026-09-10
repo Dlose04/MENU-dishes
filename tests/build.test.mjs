@@ -11,6 +11,7 @@
  */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import vm from 'node:vm'
@@ -45,6 +46,27 @@ test('挂载点、启动看门狗、挂载信标都在', { skip }, () => {
   assert.ok(html.includes('id="boot"'), '缺首屏兜底文案')
   assert.ok(html.includes('__handbookMounted'), '缺挂载信标，看门狗会误报')
   assert.ok(html.includes('手账没能翻开'), '缺启动失败提示，出错时用户看不到原因')
+})
+
+test('Service Worker 的缓存名带上了构建哈希', { skip }, () => {
+  const sw = path.join(ROOT, 'dist/sw.js')
+  assert.ok(fs.existsSync(sw), 'dist 里没有 sw.js')
+  const code = fs.readFileSync(sw, 'utf8')
+
+  // 占位符没被替换掉，说明 stampServiceWorker() 没跑
+  assert.ok(!code.includes('__BUILD_HASH__'), 'sw.js 里的 __BUILD_HASH__ 占位符没被替换')
+
+  // 缓存名必须随 index.html 的内容变。写死成 'family-menu-v1' 那种的话，
+  // sw.js 字节永远不会变 → 浏览器不重装 SW → activate 不跑 → 旧的
+  // index.html 永远留在缓存里，装过应用的人再也看不到新版本。
+  const m = /const CACHE = '([^']+)'/.exec(code)
+  assert.ok(m, 'sw.js 里找不到 CACHE 常量')
+  const expected = createHash('sha256').update(html).digest('hex').slice(0, 10)
+  assert.equal(
+    m[1],
+    `family-menu-${expected}`,
+    '缓存名和当前 index.html 的内容对不上，构建后忘了重新打哈希',
+  )
 })
 
 test('PWA 元信息齐全（添加到主屏幕要用）', { skip }, () => {

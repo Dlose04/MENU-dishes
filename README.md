@@ -12,7 +12,7 @@
 npm install
 npm run dev        # 开发，浏览器打开提示的地址
 npm run build      # 产出 dist/index.html（单文件，约 375 KB）
-npm test           # 跑 54 个自动化测试
+npm test           # 跑 55 个自动化测试
 npm run icons      # 重新生成图标（改了 scripts/make-icons.mjs 才需要跑）
 ```
 
@@ -152,6 +152,13 @@ npm run icons      # 重新生成 public/icon-180.png 和 public/icon-512.png
 > **关于离线**：`file://` 直接打开时不会注册 Service Worker（浏览器不允许），
 > 但应用本身不需要网络，所以照样能用。Service Worker 只在 http/https 托管时启用。
 
+> **发版后要让人看到**：SW 对导航请求是**缓存优先**，所以 `sw.js` 里的缓存名
+> 绑定了 `index.html` 的内容哈希（构建时由 `stampServiceWorker()` 写入）。
+> 内容一变 → `sw.js` 字节跟着变 → 浏览器重装 SW → `activate` 删掉旧缓存。
+> 缓存名如果写死（原来是 `family-menu-v1`），`sw.js` 永远不会变，
+> **装过应用的人就再也收不到新版本**，发多少次版都一样。
+> `tests/build.test.mjs` 会校验这个哈希和当前产物是一致的。
+
 ---
 
 ## 功能
@@ -287,13 +294,14 @@ scripts/
 **自动化**
 
 ```bash
-npm test      # 54 个测试
+npm test      # 55 个测试
 ```
 
 覆盖：分享链接编解码（含与官方 lz-string 逐字节对拍、坏链接不抛异常、超长提示可达）、
 日期时区边界（跨月/跨年/闰年）、预置数据与播种规则、导出导入往返，
 图标（清单声明的尺寸必须和 PNG 头一致、maskable 内容必须在安全区内），
-以及构建产物的断言（不许出现 module 脚本和外部资源引用，跑之前需要先 `npm run build`）。
+以及构建产物的断言（不许出现 module 脚本和外部资源引用、SW 缓存名必须跟着
+产物内容走，跑之前需要先 `npm run build`）。
 
 `tests/render.test.mjs` 会在 jsdom 里把整个 App 真的挂载一遍，断言外壳结构
 （封面 / 标签栏 / 纸面 / 页脚 / 三个页签）和卡片的胶带、分类标签、难度星星都在。

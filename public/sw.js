@@ -8,7 +8,14 @@
  * 因为整个应用就在本地磁盘上。
  */
 
-const CACHE = 'family-menu-v1'
+// 缓存名带构建哈希，由 vite.config.ts 的 stampServiceWorker() 在每次构建时
+// 写成 index.html 的内容摘要。**别手改这里** —— 改了也会被构建覆盖。
+//
+// 为什么必须让它每次都变：导航请求走的是「缓存优先」，只要 sw.js 本身字节
+// 没变，浏览器就不会重装 SW，activate 也就不会跑，旧的 index.html 会永远
+// 躺在缓存里 —— 发多少次版，装过应用的人都看不到。缓存名一变，
+// install/activate 就会重跑并把旧缓存删掉。
+const CACHE = 'family-menu-__BUILD_HASH__'
 // 首次安装时预缓存的应用外壳。用相对路径，兼容部署在子目录的情况。
 const SHELL = ['./', './index.html']
 

@@ -1,10 +1,12 @@
+import { createHash } from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 
-const PUBLIC = path.resolve(import.meta.dirname, 'public')
+const ROOT = import.meta.dirname
+const PUBLIC = path.resolve(ROOT, 'public')
 
 /**
  * 把 PWA 清单和图标内联进 HTML。
@@ -73,6 +75,45 @@ function inlinePwaAssets(): Plugin {
 }
 
 /**
+ * 给 Service Worker 的缓存名打上构建哈希。
+ *
+ * 起因：SW 对导航请求是「缓存优先」，而缓存名原本写死成 'family-menu-v1'。
+ * 只要 sw.js 自身的字节没变，浏览器就不会重装 SW，install/activate 都不跑，
+ * 缓存里的旧 index.html 永远删不掉 —— 也就是说**装过应用的人永远看不到新版本**，
+ * 发多少次版都一样。这次改图标就正好撞上：页面更新了，但到不了已经
+ * 「添加到主屏幕」的人手里。
+ *
+ * 做法：把缓存名绑到构建产物（index.html）的内容摘要上。内容一变，
+ * sw.js 跟着变，浏览器重装 SW，activate 里那段「删掉所有旧缓存」就生效了。
+ *
+ * 用 closeBundle 而不是 generateBundle：public/ 下的文件是 Vite 在构建末尾
+ * 直接拷进 dist 的，不走 rollup 的 bundle，所以只能在文件落盘之后改。
+ */
+function stampServiceWorker(): Plugin {
+  return {
+    name: 'family-menu:stamp-service-worker',
+    apply: 'build',
+    closeBundle() {
+      const outDir = path.resolve(ROOT, 'dist')
+      const swPath = path.join(outDir, 'sw.js')
+      const htmlPath = path.join(outDir, 'index.html')
+      if (!fs.existsSync(swPath) || !fs.existsSync(htmlPath)) return
+
+      const hash = createHash('sha256')
+        .update(fs.readFileSync(htmlPath))
+        .digest('hex')
+        .slice(0, 10)
+
+      const sw = fs.readFileSync(swPath, 'utf8')
+      if (!sw.includes('__BUILD_HASH__')) {
+        throw new Error('dist/sw.js 里没有 __BUILD_HASH__ 占位符，缓存名没法更新')
+      }
+      fs.writeFileSync(swPath, sw.replace('__BUILD_HASH__', hash))
+    },
+  }
+}
+
+/**
  * 兜底：把内联后的 `<script type="module" crossorigin>` 降级成普通 `<script>`。
  *
  * 打包格式已经设成 iife 了，正常情况下 Vite 不会再写 type="module"；
@@ -100,7 +141,13 @@ function classicScript(): Plugin {
 export default defineConfig({
   // 相对路径，保证部署在 GitHub Pages 子目录 / 任意子路径下都能正确加载
   base: './',
-  plugins: [react(), viteSingleFile(), inlinePwaAssets(), classicScript()],
+  plugins: [
+    react(),
+    viteSingleFile(),
+    inlinePwaAssets(),
+    classicScript(),
+    stampServiceWorker(),
+  ],
   build: {
     target: 'es2020',
     cssCodeSplit: false,
