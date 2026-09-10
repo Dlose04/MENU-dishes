@@ -48,6 +48,40 @@ test('挂载点、启动看门狗、挂载信标都在', { skip }, () => {
   assert.ok(html.includes('手账没能翻开'), '缺启动失败提示，出错时用户看不到原因')
 })
 
+test('把产物真的跑起来，应用能挂载上（不是停在开屏页）', { skip }, async () => {
+  // 这个测试的由来：入口脚本被 Vite 提到了 <head>，而它已经被降级成普通
+  // 脚本（没有 module 的 defer 语义），于是在 <body> 之前同步执行，
+  // getElementById('root') 拿到 null，应用挂在第一行。
+  //
+  // **前面所有断言都发现不了它**：产物里确实没有 type="module"，确实是自包含的，
+  // 启动看门狗确实在 —— 每一条都通过。只有真的把 JS 执行一遍才看得出来。
+  const { JSDOM, VirtualConsole } = await import('jsdom')
+  const vc = new VirtualConsole()
+  const errors = []
+  vc.on('jsdomError', (e) => errors.push(e.message.split('\n')[0]))
+
+  const dom = new JSDOM(html, {
+    runScripts: 'dangerously',
+    url: 'https://handbook.test/',
+    pretendToBeVisual: true,
+    virtualConsole: vc,
+  })
+  const { window } = dom
+  const root = window.document.getElementById('root')
+
+  // 轮询等 React 把 DOM 提交上去。__handbookMounted 是 render() 之后同步置的，
+  // 而 React 19 的首次提交是异步的 —— 只等那个标记会拿到空的 #root。
+  const done = () => window.__handbookMounted && root.innerHTML.includes('bookcover')
+  for (let i = 0; i < 300 && !done(); i++) {
+    await new Promise((r) => setTimeout(r, 10))
+  }
+
+  assert.deepEqual(errors, [], '跑起来时抛了错')
+  assert.equal(window.__handbookMounted, true, '应用没挂载上（看门狗会报「手账没能翻开」）')
+  assert.ok(!root.innerHTML.includes('正在翻开手账'), '#root 还停在开屏文案上')
+  assert.ok(root.innerHTML.includes('bookcover'), '#root 里没有应用外壳')
+})
+
 test('Service Worker 的缓存名带上了构建哈希', { skip }, () => {
   const sw = path.join(ROOT, 'dist/sw.js')
   assert.ok(fs.existsSync(sw), 'dist 里没有 sw.js')

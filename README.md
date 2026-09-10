@@ -12,7 +12,7 @@
 npm install
 npm run dev        # 开发，浏览器打开提示的地址
 npm run build      # 产出 dist/index.html（单文件，约 375 KB）
-npm test           # 跑 55 个自动化测试
+npm test           # 跑 56 个自动化测试
 npm run icons      # 重新生成图标（改了 scripts/make-icons.mjs 才需要跑）
 ```
 
@@ -55,6 +55,26 @@ dist/
 > 变成一个普通 `<script>`，任何 WebView 都执行。单文件应用本来就没有 import/export 需要保留，
 > 降级零成本。另外加了一个 `classicScript()` 插件兜底改标签，`tests/build.test.mjs`
 > 用断言钉死「产物里不许再出现 type="module"」。
+
+还有第二个坑，是上面这个修法**带出来的**：
+
+> Vite 打包会把 `<script type="module">` 提升到 `<head>`。module 有 defer 语义，
+> 放哪儿都行；但降级成普通脚本后 defer 就没了 —— 普通内联脚本在 `<head>` 里
+> **立即同步执行**，那时 `<body>` 还没解析到，`getElementById('root')` 是 `null`，
+> 应用挂在第一行。
+>
+> 最坑的是症状：这一步抛的错发生在诊断脚本注册 `window.onerror` **之前**，
+> 一个字都捕获不到，屏幕上只剩 8 秒后那句「应用脚本似乎完全没有执行」。
+> 排查时看到的是「脚本没跑」，真因却是「脚本跑了，第一行就炸了」。
+>
+> 修法两处：`relocateEntryScript()` 把入口脚本挪回 `</body>` 前面（恢复文档
+> 原本的顺序，也保证诊断脚本仍在应用脚本之前）；`main.tsx` 里再加一道
+> 「等 `DOMContentLoaded` 再挂载」，让它不依赖脚本位置。
+>
+> **教训**：光断言产物「长得对」（没有 module、没有外部引用、看门狗在）是不够的 ——
+> 上面每一条都通过了，应用照样打不开。`tests/build.test.mjs` 里那条
+> 「把产物真的跑起来」的测试，就是为此加的：在 jsdom 里执行整个 `dist/index.html`，
+> 断言应用真的挂载上了。写产物断言的测试，别忘了也把产物跑一遍。
 
 ---
 
@@ -294,7 +314,7 @@ scripts/
 **自动化**
 
 ```bash
-npm test      # 55 个测试
+npm test      # 56 个测试
 ```
 
 覆盖：分享链接编解码（含与官方 lz-string 逐字节对拍、坏链接不抛异常、超长提示可达）、

@@ -114,6 +114,33 @@ function stampServiceWorker(): Plugin {
 }
 
 /**
+ * 把入口脚本挪回 `</body>` 前面。
+ *
+ * 起因：Vite 构建时会把 `<script type="module">` 提升到 `<head>`。module 脚本
+ * 自带 defer 语义，放哪儿都行；但这个项目为了微信 iOS 必须把它降级成普通脚本
+ * （见下面的 classicScript），defer 就没了 —— 普通内联脚本在 <head> 里是**立即
+ * 同步执行**的，那时 <body> 还没解析到，`getElementById('root')` 是 null，
+ * 应用挂在第一行，屏幕上只剩看门狗那句「应用脚本似乎完全没有执行」。
+ *
+ * 所以在 singlefile 内联之前先把标签挪回文档末尾。main.tsx 里还有一道
+ * 「等 DOMContentLoaded 再挂载」的保险，两边都留着：这里保证文档结构符合
+ * 直觉（诊断脚本仍在应用脚本之前，出错才能被捕获），那里保证不依赖位置。
+ */
+function relocateEntryScript(): Plugin {
+  return {
+    name: 'family-menu:relocate-entry-script',
+    apply: 'build',
+    enforce: 'post',
+    transformIndexHtml(html) {
+      const tag = /<script\b[^>]*\btype="module"[^>]*><\/script>/.exec(html)?.[0]
+      if (!tag) return html
+      if (html.indexOf(tag) > html.indexOf('</body>')) return html
+      return html.replace(tag, '').replace('</body>', `    ${tag}\n  </body>`)
+    },
+  }
+}
+
+/**
  * 兜底：把内联后的 `<script type="module" crossorigin>` 降级成普通 `<script>`。
  *
  * 打包格式已经设成 iife 了，正常情况下 Vite 不会再写 type="module"；
@@ -145,6 +172,7 @@ export default defineConfig({
     react(),
     viteSingleFile(),
     inlinePwaAssets(),
+    relocateEntryScript(),
     classicScript(),
     stampServiceWorker(),
   ],
