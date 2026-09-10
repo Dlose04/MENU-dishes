@@ -211,12 +211,19 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           onClick={async () => {
             const ok = await confirmDialog({
               title: '重新载入预置菜谱？',
-              message: '会把 12 道家常菜补回来，已经存在的同名菜会跳过。',
+              message: '会把家里那 8 道菜补回来（带照片），已经存在的同名菜不会动。',
               confirmText: '载入',
             })
             if (!ok) return
-            const n = await reseedPresets()
-            toast(n ? `已载入 ${n} 道预置菜` : '预置菜都在了，没有需要补的')
+            const { added, photoFilled } = await reseedPresets()
+            if (!added && !photoFilled) {
+              toast('预置菜都在了，没有需要补的')
+              return
+            }
+            const parts: string[] = []
+            if (added) parts.push(`补了 ${added} 道菜`)
+            if (photoFilled) parts.push(`给 ${photoFilled} 道菜配上了照片`)
+            toast(parts.join('，'))
           }}
         >
           <span className="icon" aria-hidden="true">
@@ -224,7 +231,7 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </span>
           <span className="text">
             重新载入预置菜谱
-            <span className="sub">把最初那 12 道家常菜补回来</span>
+            <span className="sub">把家里那 8 道菜补回来（带照片）</span>
           </span>
         </button>
 

@@ -243,7 +243,8 @@ src/
 │   └── nanoid.ts         轻量 id 生成
 ├── db/
 │   ├── storage.ts        IndexedDB → localStorage → 内存 三级降级
-│   └── seed.ts           12 道预置菜 + 「只播种一次」标记
+│   ├── seed.ts           8 道自家预置菜 + 「只播种一次」标记
+│   └── seed-photos.ts    预置菜的照片（base64，由 npm run seed-photos 生成）
 ├── store/                模块级 store（useSyncExternalStore），非 Context
 ├── hooks/                visualViewport / 返回键拦截 / 中文输入法 / 长按
 ├── components/           封面、卡片、胶带、便签、标签栏、页脚、Toast、确认框、编辑器
@@ -302,7 +303,7 @@ scripts/
 派上用场的话可以照着走一遍：
 
 **基本**
-- [ ] 第一次打开没有报错，能看到 12 道预置菜
+- [ ] 第一次打开没有报错，能看到 8 道预置菜，而且**每道都有照片**
 - [ ] 刷新页面，改动还在
 - [ ] 改掉某道预置菜的名字，重启应用，改动还在（没有被预置数据覆盖）
 

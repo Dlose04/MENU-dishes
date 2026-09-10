@@ -5,25 +5,27 @@ import { load, src, stubLocalStorage } from './_bundle.mjs'
 const ls = stubLocalStorage()
 const seed = await load(src('db/seed.ts'))
 const { PRESET_RECIPES, buildSeedRecipes, shouldSeed, markSeeded } = seed
+const { SEED_PHOTOS } = await load(src('db/seed-photos.ts'))
 
-/** 需求文档里写死的 12 道预置菜，逐字抄下来做对照。 */
+/**
+ * 自家那 8 道菜，照用户给的说法逐字抄下来做对照。
+ *
+ * 这里的期望值是**手抄的**，不是从 src/db/seed.ts 里 import 过来的 ——
+ * 从源码里取期望值等于自己证明自己，改错了也测不出来。
+ */
 const SPEC = [
-  { name: '番茄炒蛋', category: '家常热菜', ingredients: ['番茄', '鸡蛋', '小葱'], difficulty: '简单', emoji: '🍅' },
-  { name: '青椒肉丝', category: '家常热菜', ingredients: ['青椒', '猪里脊', '蒜'], difficulty: '简单', emoji: '🫑' },
-  { name: '酸辣土豆丝', category: '家常热菜', ingredients: ['土豆', '干辣椒', '陈醋'], difficulty: '简单', emoji: '🥔' },
-  { name: '麻婆豆腐', category: '家常热菜', ingredients: ['嫩豆腐', '牛肉末', '豆瓣酱', '花椒'], difficulty: '中等', emoji: '🌶️' },
-  { name: '红烧肉', category: '硬菜', ingredients: ['五花肉', '冰糖', '八角', '生抽'], difficulty: '中等', emoji: '🥩' },
-  { name: '宫保鸡丁', category: '硬菜', ingredients: ['鸡胸肉', '花生米', '干辣椒'], difficulty: '中等', emoji: '🍗' },
-  { name: '可乐鸡翅', category: '硬菜', ingredients: ['鸡中翅', '可乐', '姜片'], difficulty: '简单', emoji: '🥤' },
-  { name: '清蒸鲈鱼', category: '硬菜', ingredients: ['鲈鱼', '葱姜', '蒸鱼豉油'], difficulty: '中等', emoji: '🐟' },
-  { name: '糖醋排骨', category: '硬菜', ingredients: ['肋排', '香醋', '冰糖'], difficulty: '较难', emoji: '🍖' },
-  { name: '蒜蓉西兰花', category: '素菜', ingredients: ['西兰花', '蒜'], difficulty: '简单', emoji: '🥦' },
-  { name: '干煸四季豆', category: '素菜', ingredients: ['四季豆', '肉末', '干辣椒'], difficulty: '中等', emoji: '🫛' },
-  { name: '紫菜蛋花汤', category: '汤羹', ingredients: ['紫菜', '鸡蛋', '虾皮'], difficulty: '简单', emoji: '🍲' },
+  { name: '番茄炒蛋', category: '家常热菜', ingredients: ['番茄', '鸡蛋'], difficulty: '简单', emoji: '🍅' },
+  { name: '酸辣土豆丝', category: '素菜', ingredients: ['土豆', '青辣椒', '红辣椒'], difficulty: '简单', emoji: '🥔' },
+  { name: '炒香干', category: '素菜', ingredients: ['豆干', '辣椒'], difficulty: '简单', emoji: '🫘' },
+  { name: '意祥一碗香', category: '家常热菜', ingredients: ['鸡蛋', '猪肉', '辣椒'], difficulty: '中等', emoji: '🍲' },
+  { name: '红烧豆腐', category: '家常热菜', ingredients: ['豆腐', '辣椒'], difficulty: '简单', emoji: '🥘' },
+  { name: '干锅包菜', category: '家常热菜', ingredients: ['猪肉', '包菜', '干辣椒'], difficulty: '中等', emoji: '🥬' },
+  { name: '辣椒炒肉', category: '家常热菜', ingredients: ['辣椒', '猪肉'], difficulty: '简单', emoji: '🌶️' },
+  { name: '火腿炒蛋', category: '家常热菜', ingredients: ['火腿', '鸡蛋'], difficulty: '简单', emoji: '🍳' },
 ]
 
-test('预置菜和需求文档里的一模一样（12 道，字段逐个对）', () => {
-  assert.equal(PRESET_RECIPES.length, 12)
+test('预置菜就是自家那 8 道（字段逐个对）', () => {
+  assert.equal(PRESET_RECIPES.length, 8)
   assert.deepEqual(
     PRESET_RECIPES.map((p) => ({ ...p })),
     SPEC,
@@ -32,19 +34,50 @@ test('预置菜和需求文档里的一模一样（12 道，字段逐个对）',
 
 test('buildSeedRecipes 产出完整菜谱：带 id、带创建时间', () => {
   const recipes = buildSeedRecipes()
-  assert.equal(recipes.length, 12)
+  assert.equal(recipes.length, 8)
   const ids = new Set(recipes.map((r) => r.id))
-  assert.equal(ids.size, 12, 'id 重复了')
+  assert.equal(ids.size, 8, 'id 重复了')
   for (const r of recipes) {
     assert.ok(r.id.length >= 12, `id 太短：${r.id}`)
     assert.ok(Number.isFinite(r.createdAt) && r.createdAt > 0)
     assert.ok(Array.isArray(r.ingredients))
   }
-  // 保持原始编排顺序，用户看到的就是文档里那个顺序
+  // 保持原始编排顺序，用户看到的就是这个顺序
   assert.deepEqual(
     recipes.map((r) => r.name),
     SPEC.map((s) => s.name),
   )
+})
+
+/**
+ * 配图这条线单独钉住。
+ *
+ * 起因：照片是 base64 内联在 src/db/seed-photos.ts 里的，而那张表是按**菜名**
+ * 索引的 —— 菜名打错一个字、或者 seed-photos/ 的文件序号和 PRESET_RECIPES
+ * 对不上，照片就会静静地落到别的菜身上（或者干脆没有）。构建和 tsc 都不会
+ * 报错，只有真机打开才看得出来。所以这里逐个菜名核对，并且真解一遍 base64。
+ */
+test('每道预置菜都带上了自己那张照片，而且是张真 JPEG', async () => {
+  const recipes = buildSeedRecipes()
+  for (const r of recipes) {
+    assert.ok(r.imageBlob instanceof Blob, `${r.name} 没有配图`)
+    assert.equal(r.imageBlob.type, 'image/jpeg', `${r.name} 的图片 MIME 不对`)
+    // 解出前几个字节验一下 JPEG 魔数 FF D8 FF —— 只检查非空的话，
+    // 把某道菜的照片复制成另一道菜的，这个测试照样绿。
+    const head = new Uint8Array(await r.imageBlob.slice(0, 3).arrayBuffer())
+    assert.deepEqual([...head], [0xff, 0xd8, 0xff], `${r.name} 的照片不是合法 JPEG`)
+    assert.ok(r.imageBlob.size > 10_000, `${r.name} 的照片小得不像照片：${r.imageBlob.size} 字节`)
+  }
+  // 8 张各不相同：串图最典型的症状就是「每道菜长得一样」
+  const sizes = recipes.map((r) => r.imageBlob.size)
+  assert.equal(new Set(sizes).size, 8, '有菜共用了同一张照片')
+})
+
+test('菜名和配图表对得上：改菜名会让照片落空，而不是串到别的菜身上', () => {
+  // 这条是上面那条的对照组 —— 说明「按名字取图」在名字对不上时是安全失败，
+  // 而不是悄悄拿隔壁那道菜的照片顶上。
+  assert.equal(Object.keys(SEED_PHOTOS).length, 8)
+  assert.deepEqual(Object.keys(SEED_PHOTOS), SPEC.map((s) => s.name))
 })
 
 test('同一个数据只播种一次：清空菜谱后不会又冒出来', () => {

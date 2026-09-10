@@ -460,20 +460,54 @@ export async function clearAllData(): Promise<void> {
   }
 }
 
-/** 重新写入预置菜谱（已存在的同名菜跳过）。 */
-export async function reseedPresets(): Promise<number> {
+export interface ReseedResult {
+  /** 新补进来的菜 */
+  added: number
+  /** 同名菜原来没图，这次把预置照片补上了 */
+  photoFilled: number
+}
+
+/**
+ * 重新写入预置菜谱。已存在的同名菜**跳过**，绝不覆盖用户的改动
+ * （改过的分类、加过的备注、自己换的照片都得留着）。
+ *
+ * 唯一的例外是配图：同名菜如果**还没有照片**，而预置菜现在有，就把照片补上。
+ *
+ * 起因：预置菜从通用家常菜换成了自家那 8 道，而其中「番茄炒蛋」「酸辣土豆丝」
+ * 老库里的同名菜会命中「跳过」分支。结果就是用户点完「重新载入预置菜谱」，
+ * 新菜都进来了，这两道却还是没图的旧样子 —— 而他现在最想要的恰恰是照片。
+ *
+ * 只在「本来是空的」时候补：用户自己选过的照片一律不动。
+ */
+export async function reseedPresets(): Promise<ReseedResult> {
   try {
-    const existingNames = new Set(state.recipes.map((r) => r.name))
-    const fresh = buildSeedRecipes().filter((r) => !existingNames.has(r.name))
-    if (fresh.length) {
-      await requireDriver().putRecipes(fresh)
-      setState({ recipes: sortRecipes([...state.recipes, ...fresh]) })
+    const byName = new Map(state.recipes.map((r) => [r.name, r]))
+    const added: Recipe[] = []
+    const photoPatched: Recipe[] = []
+
+    for (const preset of buildSeedRecipes()) {
+      const existing = byName.get(preset.name)
+      if (!existing) {
+        added.push(preset)
+        continue
+      }
+      if (!existing.imageBlob && preset.imageBlob) {
+        photoPatched.push({ ...existing, imageBlob: preset.imageBlob })
+      }
+    }
+
+    const changed = [...added, ...photoPatched]
+    if (changed.length) {
+      await requireDriver().putRecipes(changed)
+      const patchedById = new Map(photoPatched.map((r) => [r.id, r]))
+      const merged = state.recipes.map((r) => patchedById.get(r.id) ?? r)
+      setState({ recipes: sortRecipes([...merged, ...added]) })
     }
     markSeeded()
-    return fresh.length
+    return { added: added.length, photoFilled: photoPatched.length }
   } catch (err) {
     reportError(err, '载入预置菜谱失败')
-    return 0
+    return { added: 0, photoFilled: 0 }
   }
 }
 

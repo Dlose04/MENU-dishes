@@ -42,6 +42,47 @@ const DB_VERSION = 1
 const STORE_RECIPES = 'recipes'
 const STORE_MENUS = 'menus'
 
+/**
+ * 落库时的菜谱形状：图片不是 Blob，而是裸字节 + MIME。
+ *
+ * 起因：手机上换图报「写入失败」，帖子是在 iOS / 微信 WKWebView 里存 Blob 进
+ * IndexedDB 一直不可靠（Safari 有过「存进去读不出来」的老 bug，WKWebView 的
+ * 实现又自成一套）。存 ArrayBuffer 是社区通行的绕法 —— 结构克隆对它的支持
+ * 比 Blob 扎实得多，而且大小完全一样，不占额外空间。
+ *
+ * 读的时候两种都认：老数据里躺着的就是 Blob，不能因为换了写法就读不出来。
+ */
+interface StoredRecipe extends Omit<Recipe, 'imageBlob'> {
+  imageBuffer?: ArrayBuffer
+  imageType?: string
+  /** 旧数据：直接存的 Blob */
+  imageBlob?: Blob
+}
+
+async function toStored(recipe: Recipe): Promise<StoredRecipe> {
+  const { imageBlob, ...rest } = recipe
+  if (!imageBlob) return rest
+  try {
+    return {
+      ...rest,
+      imageBuffer: await imageBlob.arrayBuffer(),
+      imageType: imageBlob.type || 'image/jpeg',
+    }
+  } catch {
+    // 图片读不出来就丢图保菜谱，和 localStorage 降级那边一个策略
+    return rest
+  }
+}
+
+function fromStored(row: StoredRecipe): Recipe {
+  const { imageBuffer, imageType, imageBlob, ...rest } = row
+  if (imageBuffer) {
+    return { ...rest, imageBlob: new Blob([imageBuffer], { type: imageType || 'image/jpeg' }) }
+  }
+  if (imageBlob) return { ...rest, imageBlob }
+  return rest
+}
+
 function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof indexedDB === 'undefined' || !indexedDB) {
@@ -72,6 +113,41 @@ function openDatabase(): Promise<IDBDatabase> {
   })
 }
 
+/**
+ * 从一次失败的事务里挖出**真正的原因**。
+ *
+ * 起因：用户手机上换图报「写入失败」，但那条消息是我们自己兜底编的 ——
+ * IndexedDB 的出错顺序是「request 上先报错 → 冒泡到事务 → tx.onerror →
+ * 事务 abort → tx.onabort」，而 tx.error 要等 abort 那一步才赋值。
+ * 原来写的是 `reject(tx.error ?? new Error('写入失败'))`，
+ * 于是所有失败原因（配额满、图太大、iOS 上存 Blob 失败……）
+ * 全被压成同一句「写入失败」，等于没有信息，排查时只能猜。
+ *
+ * 现在按 tx.error → 出错的那个 request.error → 事件本身 的顺序找。
+ */
+function pickIdbError(tx: IDBTransaction, event?: Event): DOMException | null {
+  if (tx.error) return tx.error
+  const target = event?.target as IDBRequest | null
+  if (target && typeof target === 'object' && 'error' in target && target.error) {
+    return target.error
+  }
+  return null
+}
+
+/** 把 IDB 的错误翻成给人看的话。带 name，别再猜了。 */
+function idbWriteError(err: DOMException | null, what: string): Error {
+  if (!err) {
+    // 连错误对象都没有：多半是浏览器在别处把事务干掉了（iOS 切后台很常见）
+    return new Error(`${what}失败，浏览器没给出原因（事务被中止）`)
+  }
+  if (isQuotaError(err)) {
+    return new StorageQuotaError(
+      '存储空间不够了，图片没能存进去。去「设置」看看占用，删掉几张不用的照片再试。',
+    )
+  }
+  return new Error(`${what}失败：${err.name}${err.message ? ` / ${err.message}` : ''}`)
+}
+
 /** 通用事务封装：一次事务、一个请求、拿到结果就 resolve。 */
 function runRequest<T>(
   db: IDBDatabase,
@@ -87,13 +163,13 @@ function runRequest<T>(
       reject(err instanceof Error ? err : new Error('事务创建失败'))
       return
     }
-    transaction.onabort = () =>
-      reject(transaction.error ?? new Error('事务被中止，可能是存储空间不足'))
-    transaction.onerror = () => reject(transaction.error ?? new Error('事务出错'))
+    const what = mode === 'readonly' ? '读取' : '保存'
+    transaction.onabort = (e) => reject(idbWriteError(pickIdbError(transaction, e), what))
+    transaction.onerror = (e) => reject(idbWriteError(pickIdbError(transaction, e), what))
 
     const request = make(transaction.objectStore(storeName))
     request.onsuccess = () => resolve(request.result)
-    request.onerror = () => reject(request.error ?? new Error('请求失败'))
+    request.onerror = () => reject(idbWriteError(pickIdbError(transaction), what))
   })
 }
 
@@ -103,27 +179,29 @@ class IndexedDbDriver implements StorageDriver {
   constructor(private db: IDBDatabase) {}
 
   async getAllRecipes(): Promise<Recipe[]> {
-    const rows = await runRequest<Recipe[]>(this.db, STORE_RECIPES, 'readonly', (s) =>
-      s.getAll() as IDBRequest<Recipe[]>,
+    const rows = await runRequest<StoredRecipe[]>(this.db, STORE_RECIPES, 'readonly', (s) =>
+      s.getAll() as IDBRequest<StoredRecipe[]>,
     )
-    return rows ?? []
+    return (rows ?? []).map(fromStored)
   }
 
   async putRecipes(recipes: Recipe[]): Promise<void> {
     if (!recipes.length) return
+    // 图片先转成 ArrayBuffer，别把 Blob 直接塞进去（原因见 toStored）
+    const rows = await Promise.all(recipes.map(toStored))
     await new Promise<void>((resolve, reject) => {
       let tx: IDBTransaction
       try {
         tx = this.db.transaction(STORE_RECIPES, 'readwrite')
       } catch (err) {
-        reject(err instanceof Error ? err : new Error('事务创建失败'))
+        reject(err instanceof Error ? err : new Error('创建写入事务失败'))
         return
       }
       tx.oncomplete = () => resolve()
-      tx.onabort = () => reject(tx.error ?? new StorageQuotaError())
-      tx.onerror = () => reject(tx.error ?? new Error('写入失败'))
+      tx.onabort = (e) => reject(idbWriteError(pickIdbError(tx, e), '保存'))
+      tx.onerror = (e) => reject(idbWriteError(pickIdbError(tx, e), '保存'))
       const store = tx.objectStore(STORE_RECIPES)
-      for (const r of recipes) store.put(r)
+      for (const r of rows) store.put(r)
     })
   }
 
@@ -132,8 +210,8 @@ class IndexedDbDriver implements StorageDriver {
     await new Promise<void>((resolve, reject) => {
       const tx = this.db.transaction(STORE_RECIPES, 'readwrite')
       tx.oncomplete = () => resolve()
-      tx.onabort = () => reject(tx.error ?? new Error('删除失败'))
-      tx.onerror = () => reject(tx.error ?? new Error('删除失败'))
+      tx.onabort = (e) => reject(idbWriteError(pickIdbError(tx, e), '删除'))
+      tx.onerror = (e) => reject(idbWriteError(pickIdbError(tx, e), '删除'))
       const store = tx.objectStore(STORE_RECIPES)
       for (const id of ids) store.delete(id)
     })
@@ -154,8 +232,8 @@ class IndexedDbDriver implements StorageDriver {
     await new Promise<void>((resolve, reject) => {
       const tx = this.db.transaction([STORE_RECIPES, STORE_MENUS], 'readwrite')
       tx.oncomplete = () => resolve()
-      tx.onabort = () => reject(tx.error ?? new Error('清空失败'))
-      tx.onerror = () => reject(tx.error ?? new Error('清空失败'))
+      tx.onabort = (e) => reject(idbWriteError(pickIdbError(tx, e), '清空'))
+      tx.onerror = (e) => reject(idbWriteError(pickIdbError(tx, e), '清空'))
       tx.objectStore(STORE_RECIPES).clear()
       tx.objectStore(STORE_MENUS).clear()
     })

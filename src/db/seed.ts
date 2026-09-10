@@ -14,6 +14,8 @@
 
 import type { Difficulty, Recipe } from '../types'
 import { nanoid } from '../lib/nanoid'
+import { dataURLToBlob } from '../lib/image'
+import { SEED_PHOTOS } from './seed-photos'
 
 interface PresetRecipe {
   name: string
@@ -23,19 +25,24 @@ interface PresetRecipe {
   emoji: string
 }
 
+/**
+ * 自家常做的那几道。
+ *
+ * 照片不写在这儿，而是按**菜名**去 SEED_PHOTOS 里取（那份文件由
+ * scripts/make-seed-photos.mjs 从 seed-photos/ 生成）。这样菜名一改，
+ * 照片对不上就会自然落空，不会串到别的菜身上。
+ *
+ * 加菜/改菜时记得两边一起改：seed-photos/ 里的文件名序号 → 这个数组的下标。
+ */
 export const PRESET_RECIPES: PresetRecipe[] = [
-  { name: '番茄炒蛋', category: '家常热菜', ingredients: ['番茄', '鸡蛋', '小葱'], difficulty: '简单', emoji: '🍅' },
-  { name: '青椒肉丝', category: '家常热菜', ingredients: ['青椒', '猪里脊', '蒜'], difficulty: '简单', emoji: '🫑' },
-  { name: '酸辣土豆丝', category: '家常热菜', ingredients: ['土豆', '干辣椒', '陈醋'], difficulty: '简单', emoji: '🥔' },
-  { name: '麻婆豆腐', category: '家常热菜', ingredients: ['嫩豆腐', '牛肉末', '豆瓣酱', '花椒'], difficulty: '中等', emoji: '🌶️' },
-  { name: '红烧肉', category: '硬菜', ingredients: ['五花肉', '冰糖', '八角', '生抽'], difficulty: '中等', emoji: '🥩' },
-  { name: '宫保鸡丁', category: '硬菜', ingredients: ['鸡胸肉', '花生米', '干辣椒'], difficulty: '中等', emoji: '🍗' },
-  { name: '可乐鸡翅', category: '硬菜', ingredients: ['鸡中翅', '可乐', '姜片'], difficulty: '简单', emoji: '🥤' },
-  { name: '清蒸鲈鱼', category: '硬菜', ingredients: ['鲈鱼', '葱姜', '蒸鱼豉油'], difficulty: '中等', emoji: '🐟' },
-  { name: '糖醋排骨', category: '硬菜', ingredients: ['肋排', '香醋', '冰糖'], difficulty: '较难', emoji: '🍖' },
-  { name: '蒜蓉西兰花', category: '素菜', ingredients: ['西兰花', '蒜'], difficulty: '简单', emoji: '🥦' },
-  { name: '干煸四季豆', category: '素菜', ingredients: ['四季豆', '肉末', '干辣椒'], difficulty: '中等', emoji: '🫛' },
-  { name: '紫菜蛋花汤', category: '汤羹', ingredients: ['紫菜', '鸡蛋', '虾皮'], difficulty: '简单', emoji: '🍲' },
+  { name: '番茄炒蛋', category: '家常热菜', ingredients: ['番茄', '鸡蛋'], difficulty: '简单', emoji: '🍅' },
+  { name: '酸辣土豆丝', category: '素菜', ingredients: ['土豆', '青辣椒', '红辣椒'], difficulty: '简单', emoji: '🥔' },
+  { name: '炒香干', category: '素菜', ingredients: ['豆干', '辣椒'], difficulty: '简单', emoji: '🫘' },
+  { name: '意祥一碗香', category: '家常热菜', ingredients: ['鸡蛋', '猪肉', '辣椒'], difficulty: '中等', emoji: '🍲' },
+  { name: '红烧豆腐', category: '家常热菜', ingredients: ['豆腐', '辣椒'], difficulty: '简单', emoji: '🥘' },
+  { name: '干锅包菜', category: '家常热菜', ingredients: ['猪肉', '包菜', '干辣椒'], difficulty: '中等', emoji: '🥬' },
+  { name: '辣椒炒肉', category: '家常热菜', ingredients: ['辣椒', '猪肉'], difficulty: '简单', emoji: '🌶️' },
+  { name: '火腿炒蛋', category: '家常热菜', ingredients: ['火腿', '鸡蛋'], difficulty: '简单', emoji: '🍳' },
 ]
 
 const SEEDED_KEY = 'family-menu:seeded'
@@ -66,6 +73,22 @@ export function shouldSeed(existingRecipeCount: number): boolean {
   return !readSeededFlag()
 }
 
+/**
+ * 取预置菜的配图。没有就返回 undefined（图比菜少是允许的，卡片会退成 emoji）。
+ *
+ * 解码失败也当没有：base64 是生成出来的，正常情况下不会坏；真坏了也不该
+ * 让整次播种挂掉 —— 丢一张图远比丢一道菜轻。
+ */
+function presetPhoto(name: string): Blob | undefined {
+  const dataUrl = SEED_PHOTOS[name]
+  if (!dataUrl) return undefined
+  try {
+    return dataURLToBlob(dataUrl)
+  } catch {
+    return undefined
+  }
+}
+
 /** 生成预置菜谱（每次调用 id 都不同，所以只在真正播种时调用一次）。 */
 export function buildSeedRecipes(): Recipe[] {
   const now = Date.now()
@@ -76,6 +99,7 @@ export function buildSeedRecipes(): Recipe[] {
     ingredients: [...p.ingredients],
     difficulty: p.difficulty,
     emoji: p.emoji,
+    imageBlob: presetPhoto(p.name),
     // 预置菜之间保持稳定顺序
     createdAt: now + i,
   }))
