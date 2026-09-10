@@ -45,6 +45,13 @@ export interface ToastOptions {
 
 export function toast(text: string, options: ToastOptions = {}): string {
   const id = nanoid(8)
+
+  // 没有 DOM 就直接返回。toast 是纯 UI 副作用，而调用它的地方往往是
+  // 「先落库、后提示」—— 在 Node 里跑 store 的用例时，window 不存在，
+  // 让它抛出去的话，一次成功的归并/删除会表现得像失败了
+  // （提示本身没发出来，业务逻辑却被异常打断）。
+  if (typeof window === 'undefined') return id
+
   const duration =
     options.duration ?? (options.actionLabel ? ACTION_DURATION : DEFAULT_DURATION)
 

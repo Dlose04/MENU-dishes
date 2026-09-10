@@ -20,6 +20,7 @@ import { todayKey } from '../lib/date'
 import { nextStamp } from '../lib/stamp'
 import { buildBackup, parseBackup } from '../lib/backup'
 import { mergePayload, toSyncRecipe, type SyncPayload } from '../sync/merge'
+import { consolidateByName } from '../sync/consolidate'
 import { toast } from './toast'
 
 export interface AppState {
@@ -141,7 +142,7 @@ export function initStore(): Promise<void> {
       driver = init.driver
 
       let recipes = await init.driver.getAllRecipes()
-      const menus = await init.driver.getAllMenus()
+      let menus = await init.driver.getAllMenus()
 
       // 只在「库是空的」且「没播种过」时写入预置菜。
       // 两个条件缺一不可，详见 db/seed.ts 的注释。
@@ -157,6 +158,26 @@ export function initStore(): Promise<void> {
         markSeeded()
       } else if (recipes.length === 0) {
         // 空库 + 已播种过（用户自己清空的），不打扰
+      }
+
+      // 同一个菜名只留一条（详见 sync/consolidate.ts）。
+      // 放在启动时，是因为这个坏状态**已经在库里了** —— 用户不点同步、
+      // 断网、云函数到期，都得能自己好。没有重名时它是个纯粹的 no-op，
+      // 一条记录都不写。
+      try {
+        const tidy = consolidateByName(recipes, menus, { stamp: nextStamp() })
+        if (tidy.recipeWrites.length || tidy.menuWrites.length) {
+          await init.driver.putRecipes(tidy.recipeWrites)
+          for (const m of tidy.menuWrites) await init.driver.putMenu(m)
+          recipes = tidy.recipes
+          menus = tidy.menus
+        }
+        if (tidy.mergedGroups) {
+          toast(`合并了 ${tidy.mergedGroups} 组重名的菜`, { duration: 6000 })
+        }
+      } catch (err) {
+        // 归并失败不该挡住应用启动：最多是列表里还留着重复的菜
+        console.error('[family-menu] 同名归并失败', err)
       }
 
       // local: false —— 这是「载入」，不是用户改的，不该触发一次推送
@@ -727,14 +748,28 @@ export async function applySyncPayload(payload: SyncPayload): Promise<void> {
     return image ? { ...r, imageBlob: image } : { ...r }
   })
 
-  await d.putRecipes(nextRecords)
-  for (const m of merged.menus) await d.putMenu(m)
+  // 【同名归并】合并是按 id 去重的，前提是「同一道菜在哪台设备上都是同一个 id」。
+  // 预置菜 id 从随机改成 preset-<菜名> 之前入库的那批记录不满足这个前提 ——
+  // 老记录和新记录一碰面，同一个菜名留下两条：一条带照片，一条没有。
+  // 用户看到的是「全部 18」。这里把同名的合成一条，照片接到留下的那条身上
+  // （照片不在同步数据里，只能本机搬），被合并掉的留墓碑，这样删除
+  // 才能传到别的设备去。详见 sync/consolidate.ts。
+  const tidy = consolidateByName(nextRecords, merged.menus, {
+    stamp: nextStamp(),
+    photos: imageById,
+  })
+  if (tidy.mergedGroups) {
+    toast(`合并了 ${tidy.mergedGroups} 组重名的菜`, { duration: 6000 })
+  }
+
+  await d.putRecipes(tidy.recipes)
+  for (const m of tidy.menus) await d.putMenu(m)
 
   // local: false —— 这次变化是同步自己造成的，不能让它反过来触发新一轮推送
   setState(
     {
-      recipes: sortRecipes(liveRecipes(nextRecords)),
-      menus: [...merged.menus],
+      recipes: sortRecipes(liveRecipes(tidy.recipes)),
+      menus: [...tidy.menus],
     },
     { local: false },
   )
