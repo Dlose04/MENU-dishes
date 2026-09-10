@@ -11,8 +11,9 @@
 ```bash
 npm install
 npm run dev        # 开发，浏览器打开提示的地址
-npm run build      # 产出 dist/index.html（单文件，约 330 KB）
-npm test           # 跑 51 个自动化测试
+npm run build      # 产出 dist/index.html（单文件，约 375 KB）
+npm test           # 跑 54 个自动化测试
+npm run icons      # 重新生成图标（改了 scripts/make-icons.mjs 才需要跑）
 ```
 
 `npm run build` 之后 `dist/` 长这样：
@@ -123,6 +124,31 @@ vercel --prod     # 发布到正式地址
 
 应用会自动注册 Service Worker，之后**断网也能打开**。
 
+### 图标是怎么来的
+
+`public/` 里那两张 PNG 不是手画的，是 `scripts/make-icons.mjs` 生成出来的：
+
+```bash
+npm run icons      # 重新生成 public/icon-180.png 和 public/icon-512.png
+```
+
+脚本用 Node 自带的 `zlib` 手写了一个 PNG 编码器，零依赖。图形按测量的参数重画
+（碗沿椭圆、碗身轮廓、三缕热气的曲线、横线间距），**没有矢量源文件也能改配色改尺寸**。
+
+两张图的分工：
+
+| 文件 | 用途 | 说明 |
+| --- | --- | --- |
+| `icon-180.png` | `apple-touch-icon` + 清单里的 `any` | iPhone 主屏图标就用这张，1:1 还原设计稿 |
+| `icon-512.png` | 清单里的 `maskable` | Android 主屏图标。`maskable` 要求内容落在画布中心**直径 80% 的安全区**内，因为各家会用不同形状去裁 |
+
+> 之前踩过的坑：`icon-512.png` 一度就是 `icon-180.png` 的复制品（两个文件 md5 一模一样），
+> 清单里却按 `512x512` + `maskable` 声明。Android 拿 180 的图当 512 用会发虚，
+> 而且那张图是画满整张画布的，按圆形一裁碗沿就断了。**iOS 走的是 apple-touch-icon，
+> 完全看不出问题** —— 所以这个 bug 在 iPhone 上永远发现不了。
+> 现在 `tests/icons.test.mjs` 会用 PNG 头校验「声明的尺寸必须是真的」，
+> 并逐个像素确认 maskable 的内容确实落在安全区内。
+
 > **关于离线**：`file://` 直接打开时不会注册 Service Worker（浏览器不允许），
 > 但应用本身不需要网络，所以照样能用。Service Worker 只在 http/https 托管时启用。
 
@@ -196,6 +222,10 @@ src/
 ├── components/           封面、卡片、胶带、便签、标签栏、页脚、Toast、确认框、编辑器
 ├── pages/                菜谱库 / 点菜 / 今日菜单 / 设置 / 分享预览
 └── styles/global.css     手账风设计系统
+
+scripts/
+├── make-icons.mjs        生成 PWA 图标（自带 PNG 编码器）
+└── deploy.mjs            发布到 GitHub Pages
 ```
 
 几个值得一提的地方：
@@ -217,6 +247,12 @@ src/
 - **`--fixed-bottom` 这个变量别绕过**：手机端标签栏是 `position: fixed` 贴底的，
   页面留白、多选栏、Toast 三处都要避开它；宽屏上标签栏回到文档流，这三处就得同时归零。
   所以它们统一读 `--fixed-bottom`，改的时候只改 `:root` 里那一个值。
+- **PWA 清单和图标构建时内联**：单文件模式（`file://` 双击打开）取不到旁边的
+  `manifest.webmanifest` 和 png，所以这两样必须写成 `data:` URI。但手写 base64
+  意味着同一份图标有两份副本，改了 `public/` 里的图、内联的那份不会跟着变 ——
+  之前的 180/512 混乱就是这么攒出来的。现在 `vite.config.ts` 里的
+  `inlinePwaAssets()` 在构建时从 `public/manifest.webmanifest` 派生内联版本，
+  **清单只维护一份**。托管时启动脚本再换回真实文件路径，Service Worker 才能正常工作。
 
 ---
 
@@ -251,11 +287,12 @@ src/
 **自动化**
 
 ```bash
-npm test      # 51 个测试
+npm test      # 54 个测试
 ```
 
 覆盖：分享链接编解码（含与官方 lz-string 逐字节对拍、坏链接不抛异常、超长提示可达）、
 日期时区边界（跨月/跨年/闰年）、预置数据与播种规则、导出导入往返，
+图标（清单声明的尺寸必须和 PNG 头一致、maskable 内容必须在安全区内），
 以及构建产物的断言（不许出现 module 脚本和外部资源引用，跑之前需要先 `npm run build`）。
 
 `tests/render.test.mjs` 会在 jsdom 里把整个 App 真的挂载一遍，断言外壳结构

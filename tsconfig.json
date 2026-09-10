@@ -20,7 +20,9 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
 
-    "types": ["vite/client"]
+    // node：vite.config.ts 要在构建时读 public/ 里的图标做内联，
+    // scripts/ 里的构建脚本也都是 Node 环境
+    "types": ["vite/client", "node"]
   },
   "include": ["src", "vite.config.ts", "tests"]
 }
