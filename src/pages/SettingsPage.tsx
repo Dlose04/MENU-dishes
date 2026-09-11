@@ -291,6 +291,22 @@ export function SettingsPage({ onClose }: { onClose: () => void }) {
           </p>
 
           <p>
+            <strong>为什么过一阵子要重新填一次同步口令？</strong>
+            <br />
+            不是应用在丢数据，是<strong>浏览器自己把本站的本地数据清掉了</strong>。
+            两种情况最常见：
+            <br />
+            ① <strong>无痕 / 隐私窗口</strong> —— 窗口一关，菜谱、菜单、口令全部清空；
+            <br />
+            ② <strong>iPhone 的 Safari</strong> —— 连续 7 天没打开过这个网站，会清掉它的全部本地数据
+            （存菜谱的 IndexedDB 和存口令的 localStorage 是一起清的）。
+            <br />
+            云端那份一直都在，重新填一次口令就全回来了。想彻底避免：
+            <strong>别用无痕窗口</strong>，并在 Safari 里「添加到主屏幕」，以后从主屏幕图标进 ——
+            iOS 对「添加到主屏幕」的网站在存储清理上会放宽。
+          </p>
+
+          <p>
             <strong>「跨设备同步」用的服务器是谁的？</strong>
             <br />
             是家里自己的一个云函数（腾讯云开发，免费额度内），只做三件事：

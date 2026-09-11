@@ -410,9 +410,15 @@ export async function initStorage(): Promise<StorageInit> {
     return {
       driver: new LocalStorageDriver(),
       mode: 'localstorage',
+      // 必须把「无痕窗口关掉后数据就没了」写出来。原先只说「容量只有 5MB」，
+      // 用户于是把「过一阵子就要重配一次同步口令、菜谱也不对」当成应用的毛病
+      // （2026-09-10 用户问「为什么隔一段时间就要重新同步」就是这么来的）。
+      // 这是无痕模式的固有行为，应用改不了，只能讲清楚。
       warning:
         '当前浏览器无法使用 IndexedDB（常见于无痕/隐私模式），已自动降级到 localStorage：' +
         '功能都能用，但容量只有约 5MB，图片存不了几张。' +
+        '注意：无痕窗口关掉之后，菜谱、菜单和同步口令都会被浏览器清掉，下次打开要重新配置 —— ' +
+        '想长期用请换普通窗口，并把应用「添加到主屏幕」。' +
         (idbError instanceof Error ? `（${idbError.message}）` : ''),
     }
   }
